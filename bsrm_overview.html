@@ -1438,3 +1438,602 @@ function xReset() {
   renderXStep(0);
 }
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TABS 4, 5, 6: styles + pages + JS
+═══════════════════════════════════════════════════════════════ -->
+<style>
+/* shared extras */
+.p-wrap{max-width:960px;margin:0 auto;padding:20px 24px 48px}
+.p-hero{margin-bottom:24px}
+.p-badge{display:inline-block;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;background:var(--blue-bg);color:var(--blue-text);border:.5px solid var(--blue-bd);margin-bottom:10px}
+.p-h1{font-size:22px;font-weight:700;margin-bottom:8px}
+.p-sub{font-size:14px;color:var(--text2);line-height:1.7;max-width:700px}
+.sec-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin:0 0 10px}
+
+/* ── TAB 4: AddCircuit vs MTZ ── */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:.5px solid var(--border2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px}
+.cg-hdr{padding:13px 18px;font-size:13px;font-weight:700;border-bottom:.5px solid var(--border2)}
+.cg-hdr.mtz{background:#faeeda;color:#633806}
+.cg-hdr.ac {background:#e1f5ee;color:#085041}
+.cg-col{padding:16px 18px;font-size:13px;line-height:1.75;color:var(--text);border-right:.5px solid var(--border2)}
+.cg-col:last-child{border-right:none}
+.cg-row{display:contents}
+.cg-row .cg-col{border-top:.5px solid var(--border)}
+.cg-row:first-child .cg-col{border-top:none}
+.cg-sep{grid-column:1/-1;padding:8px 18px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);background:var(--bg2);border-top:.5px solid var(--border2)}
+
+.code-mini{font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;background:var(--code-bg);border-radius:6px;padding:10px 12px;margin:8px 0;color:#f8f8f2;line-height:1.7;overflow-x:auto}
+.code-mini .k{color:#c792ea}.code-mini .f{color:#82aaff}.code-mini .s{color:#c3e88d}.code-mini .n{color:#f78c6c}.code-mini .c{color:#546e7a;font-style:italic}
+
+.subtour-demo{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.sd-box{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:16px;text-align:center}
+.sd-box canvas{display:block;margin:0 auto 8px}
+.sd-title{font-size:12.5px;font-weight:600;margin-bottom:4px}
+.sd-body{font-size:12px;color:var(--text2);line-height:1.6}
+.bad-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fdeaea;color:#c0392b;border:.5px solid #e74c3c;margin-bottom:6px}
+.ok-badge {display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--green-bg);color:var(--green-text);border:.5px solid var(--green-bd);margin-bottom:6px}
+
+/* ── TAB 5: Propagation ── */
+.prop-layout{display:grid;grid-template-columns:1fr 320px;gap:20px}
+.prop-chain{display:flex;flex-direction:column;gap:0}
+.prop-step{display:flex;gap:0;align-items:stretch}
+.ps-num{width:32px;flex-shrink:0;display:flex;flex-direction:column;align-items:center}
+.ps-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;color:#fff}
+.ps-line{flex:1;width:2px;background:var(--border2);margin:3px auto}
+.ps-body{flex:1;padding:0 0 18px 14px}
+.ps-title{font-size:14px;font-weight:600;margin-bottom:5px}
+.ps-desc{font-size:13px;color:var(--text2);line-height:1.7}
+.ps-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:5px}
+.tag-trigger{background:var(--blue-bg);color:var(--blue-text);border:.5px solid var(--blue-bd)}
+.tag-infer {background:var(--purple-bg);color:var(--purple-text);border:.5px solid var(--purple-bd)}
+.tag-rb    {background:var(--amber-bg);color:var(--amber-text);border:.5px solid var(--amber-bd)}
+.tag-ok    {background:var(--green-bg);color:var(--green-text);border:.5px solid var(--green-bd)}
+
+.prop-side{display:flex;flex-direction:column;gap:12px}
+.prop-vars{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:14px 16px}
+.pv-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:10px}
+.pv-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid var(--border);font-size:12.5px}
+.pv-row:last-child{border-bottom:none}
+.pv-name{font-family:'SFMono-Regular',Consolas,monospace;font-size:11.5px;color:var(--blue-text)}
+.pv-val{font-weight:700;font-size:12px}
+.pv-unknown{color:var(--text3)}
+.pv-one   {color:var(--green-text)}
+.pv-zero  {color:var(--text3);text-decoration:line-through;opacity:.6}
+.pv-infer {color:var(--purple-text)}
+
+.prop-key-box{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:14px 16px}
+.pkb-title{font-size:13px;font-weight:600;margin-bottom:8px}
+.pkb-body{font-size:12.5px;color:var(--text2);line-height:1.7}
+
+/* ── TAB 6: Nếu vi phạm ── */
+.viol-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.vt-btn{font-size:12px;padding:6px 14px;border-radius:8px;border:.5px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:inherit;transition:all .12s}
+.vt-btn:hover{background:var(--bg3)}
+.vt-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+.viol-panel{display:none}.viol-panel.active{display:block}
+
+.viol-card{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:14px}
+.vc-hdr2{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:.5px solid var(--border2)}
+.vc-icon2{font-size:20px}
+.vc-meta{flex:1}
+.vc-title2{font-size:14px;font-weight:600}
+.vc-sub2{font-size:12px;color:var(--text2);margin-top:2px}
+.vc-sev{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+.sev-high{background:#fdeaea;color:#c0392b;border:.5px solid #e74c3c}
+.sev-med {background:var(--amber-bg);color:var(--amber-text);border:.5px solid var(--amber-bd)}
+.vc-body2{padding:16px 18px}
+.scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.sc-box{border-radius:8px;padding:13px 14px;font-size:13px;line-height:1.7}
+.sc-bad{background:#fdeaea;border:.5px solid #e74c3c}
+.sc-ok {background:var(--green-bg);border:.5px solid var(--green-bd)}
+.sc-bad-t{font-size:10px;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.sc-ok-t {font-size:10px;font-weight:700;color:var(--green-text);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+
+@media(max-width:720px){
+  .compare-grid{grid-template-columns:1fr}
+  .subtour-demo{grid-template-columns:1fr}
+  .prop-layout{grid-template-columns:1fr}
+  .scenario-grid{grid-template-columns:1fr}
+}
+</style>
+
+<!-- ══ TAB 4: AddCircuit vs MTZ ══ -->
+<div class="page" id="page-mtz">
+<div class="p-wrap">
+  <div class="p-hero">
+    <div class="p-badge">Câu hỏi hay gặp nhất</div>
+    <h1 class="p-h1">Tại sao dùng AddCircuit thay vì MTZ?</h1>
+    <p class="p-sub">MTZ (Miller-Tucker-Zemlin) là phương pháp cổ điển loại trừ subtour trong TSP. Code ban đầu dùng MTZ và chỉ pass 2/10 test (MLE). Sau khi đổi sang AddCircuit, kết quả cải thiện rõ rệt. Dưới đây là lý do tại sao.</p>
+  </div>
+
+  <!-- Subtour demo canvases -->
+  <div class="sec-lbl">Subtour là gì — và hai cách loại trừ nó</div>
+  <div class="subtour-demo">
+    <div class="sd-box">
+      <div class="bad-badge">❌ Subtour — sai</div>
+      <canvas id="c-subtour" width="200" height="160"></canvas>
+      <div class="sd-title">KTV 1 đi vòng 1→2→1</div>
+      <div class="sd-body">Mỗi node đều có 1 cạnh vào/ra — nhưng vòng này không qua depot (0). Tuyến đường hoàn toàn vô nghĩa thực tế.</div>
+    </div>
+    <div class="sd-box">
+      <div class="ok-badge">✅ Hợp lệ</div>
+      <canvas id="c-valid" width="200" height="160"></canvas>
+      <div class="sd-title">KTV 1 đi 0→1→2→0</div>
+      <div class="sd-body">Vòng duy nhất qua depot. Đây là tuyến đường hợp lệ mà AddCircuit bắt buộc phải tạo ra.</div>
+    </div>
+  </div>
+
+  <!-- Comparison table -->
+  <div class="sec-lbl" style="margin-top:24px">So sánh chi tiết</div>
+  <div class="compare-grid">
+    <div class="cg-hdr mtz">⚠ MTZ — cách cũ</div>
+    <div class="cg-hdr ac">✅ AddCircuit — cách mới</div>
+
+    <div class="cg-sep">Cơ chế loại trừ subtour</div>
+    <div class="cg-row">
+      <div class="cg-col">Thêm biến phụ <span class="ck ck-a">u[i,k]</span> = thứ tự thăm node i. Ràng buộc: <span class="ck ck-a">u[i,k] − u[j,k] + N·x[i,j,k] ≤ N−1</span>. Nếu có subtour thì ràng buộc này bị vi phạm.</div>
+      <div class="cg-col">Không cần biến phụ. OR-Tools có ràng buộc đặc biệt <span class="ck ck-g">AddCircuit</span> tích hợp sẵn — kiểm tra cấu trúc đồ thị trực tiếp, không qua bất đẳng thức.</div>
+    </div>
+
+    <div class="cg-sep">Số biến cần tạo</div>
+    <div class="cg-row">
+      <div class="cg-col">K × (N+1) × N biến x <strong>+ K × N biến u</strong><br><br>Ví dụ N=10, K=5: x = 550, u = 50 → <strong>600 biến</strong></div>
+      <div class="cg-col">K × (N+1) × N biến x <strong>+ K × N biến self_loop</strong> (BoolVar, nhẹ hơn IntVar nhiều)<br><br>Ví dụ N=10, K=5: x = 550, sl = 50 → <strong>600 biến</strong> nhưng nhẹ hơn vì sl là BoolVar</div>
+    </div>
+
+    <div class="cg-sep">Loại biến</div>
+    <div class="cg-row">
+      <div class="cg-col"><span class="ck ck-a">u[i,k]</span> là <strong>IntVar</strong> với domain [0, N]. Mỗi IntVar tiêu tốn bộ nhớ O(N) để lưu domain.<br><br>Nếu code dùng <span class="ck ck-a">NewIntVar(0,1)</span> cho cả x — đây chính là nguyên nhân MLE!</div>
+      <div class="cg-col"><span class="ck ck-g">self_loop[i,k]</span> là <strong>BoolVar</strong> — chỉ cần 1 bit, không có domain phức tạp. CP-SAT xử lý BoolVar cực kỳ hiệu quả so với IntVar.</div>
+    </div>
+
+    <div class="cg-sep">Sức mạnh propagation</div>
+    <div class="cg-row">
+      <div class="cg-col">Ràng buộc tuyến tính — solver phải thử nhiều nhánh trước khi phát hiện subtour. <strong>Propagation yếu</strong>.</div>
+      <div class="cg-col">AddCircuit dùng thuật toán đồ thị chuyên dụng (strongly connected components). Phát hiện subtour sớm hơn nhiều. <strong>Propagation mạnh</strong> → cắt nhánh sớm → ít backtrack hơn.</div>
+    </div>
+
+    <div class="cg-sep">Kết quả thực tế (bài BSRM N=10, K=5)</div>
+    <div class="cg-row">
+      <div class="cg-col" style="color:#c0392b">❌ 2/10 test pass<br>8 test MLE (Memory Limit Exceeded)<br>IntVar(0,1) thay vì BoolVar → bộ nhớ tăng gấp 10-20x</div>
+      <div class="cg-col" style="color:var(--green-text)">✅ Pass nhiều test hơn<br>Không còn MLE trên test nhỏ-vừa<br>BoolVar + AddCircuit → bộ nhớ giảm đáng kể</div>
+    </div>
+  </div>
+
+  <!-- Code comparison -->
+  <div class="sec-lbl" style="margin-top:24px">Code thực tế — 3 thay đổi chính</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--amber-text);margin-bottom:6px">Trước (MTZ)</div>
+      <div class="code-mini"><span class="c"># x là IntVar(0,1) — sai type!</span>
+x[i,j,k] = model.<span class="f">NewIntVar</span>(<span class="n">0</span>,<span class="n">1</span>,...)
+
+<span class="c"># Biến thứ tự MTZ</span>
+u[i,k] = model.<span class="f">NewIntVar</span>(<span class="n">0</span>,<span class="n">N</span>,...)
+
+<span class="c"># Ràng buộc MTZ</span>
+model.<span class="f">Add</span>(
+  u[i,k] - u[j,k] + N*x[i,j,k]
+  &lt;= N - <span class="n">1</span>
+)</div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--green-text);margin-bottom:6px">Sau (AddCircuit)</div>
+      <div class="code-mini"><span class="c"># x là BoolVar — đúng!</span>
+x[i,j,k] = model.<span class="f">NewBoolVar</span>(...)
+
+<span class="c"># self_loop thay MTZ</span>
+self_loop[i,k] = model.<span class="f">NewBoolVar</span>(...)
+
+<span class="c"># Một dòng thay cả MTZ</span>
+model.<span class="f">AddCircuit</span>(arcs)</div>
+    </div>
+  </div>
+
+  <!-- Why BoolVar matters -->
+  <div style="background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:18px 20px;margin-top:16px">
+    <div class="sec-lbl">Tại sao IntVar(0,1) gây MLE mà BoolVar thì không?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13.5px;line-height:1.75">
+      <div>
+        <strong style="color:var(--amber-text)">IntVar(0,1)</strong><br>
+        CP-SAT lưu domain dạng tập các khoảng: <span class="ck ck-a">{[0,0], [1,1]}</span>. Mỗi IntVar cần metadata, pointer, domain list. Với K×N²= hàng nghìn biến → hàng MB bộ nhớ chỉ cho metadata.<br><br>
+        Ngoài ra, solver tạo thêm các <em>literals</em> nội bộ để encode domain — IntVar(0,1) tạo ra 2–4 literals, nặng hơn BoolVar nhiều.
+      </div>
+      <div>
+        <strong style="color:var(--green-text)">BoolVar</strong><br>
+        CP-SAT lưu BoolVar dưới dạng 1 <em>literal SAT</em> duy nhất. Không có domain list, không có metadata phức tạp. Bộ nhớ gần như bằng 1 bit.<br><br>
+        Solver có đường code path tối ưu riêng cho BoolVar — propagation nhanh hơn, ít allocate memory hơn. Đây là lý do <strong>NewBoolVar() luôn ưu tiên hơn NewIntVar(0,1)</strong> khi biến chỉ cần 0/1.
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ TAB 5: Propagation ══ -->
+<div class="page" id="page-prop">
+<div class="p-wrap">
+  <div class="p-hero">
+    <div class="p-badge" style="background:var(--purple-bg);color:var(--purple-text);border-color:var(--purple-bd)">Cơ chế ẩn</div>
+    <h1 class="p-h1">Constraint Propagation — Solver tự suy ra thế nào?</h1>
+    <p class="p-sub">Khi solver gán một biến, nó không chỉ đơn giản ghi giá trị đó xuống. Nó <strong>truyền thông tin</strong> qua các ràng buộc để tự động suy ra giá trị của nhiều biến khác — mà không cần phải thử. Đây là sức mạnh cốt lõi của CP-SAT.</p>
+  </div>
+
+  <div class="prop-layout">
+    <!-- Chain -->
+    <div>
+      <div class="sec-lbl">Ví dụ N=3, K=2 — Solver gán x[0,1,1]=1 và hệ quả domino</div>
+      <div class="prop-chain">
+
+        <div class="prop-step">
+          <div class="ps-num"><div class="ps-circle" style="background:var(--blue)">1</div><div class="ps-line"></div></div>
+          <div class="ps-body">
+            <div class="ps-tag tag-trigger">Trigger ban đầu</div>
+            <div class="ps-title">Solver quyết định: x[0,1,1] = 1</div>
+            <div class="ps-desc">KTV 1 đi từ depot (0) đến KH1 (1). Đây là quyết định đầu tiên trong nhánh Branch & Bound. Solver <strong>chọn</strong> giá trị này để thử.</div>
+            <div class="code-mini" style="margin-top:8px">x[<span class="n">0</span>,<span class="n">1</span>,<span class="n">1</span>] = <span class="n">1</span>  <span class="c"># KTV1 đi depot→KH1</span></div>
+          </div>
+        </div>
+
+        <div class="prop-step">
+          <div class="ps-num"><div class="ps-circle" style="background:var(--purple)">2</div><div class="ps-line"></div></div>
+          <div class="ps-body">
+            <div class="ps-tag tag-infer">Suy ra từ AddCircuit</div>
+            <div class="ps-title">AddCircuit tự ép x[0,2,1]=0 và x[0,3,1]=0</div>
+            <div class="ps-desc">AddCircuit biết: mỗi node chỉ có thể có <strong>đúng 1 cạnh ra</strong> trong chu trình. Depot (0) đã có cạnh ra đến KH1 → tự động loại các cạnh ra khác từ depot của KTV1. Solver <strong>không cần thử</strong> — nó tự biết.</div>
+            <div class="code-mini" style="margin-top:8px">x[<span class="n">0</span>,<span class="n">2</span>,<span class="n">1</span>] = <span class="n">0</span>  <span class="c"># tự động suy ra</span>
+x[<span class="n">0</span>,<span class="n">3</span>,<span class="n">1</span>] = <span class="n">0</span>  <span class="c"># tự động suy ra</span></div>
+          </div>
+        </div>
+
+        <div class="prop-step">
+          <div class="ps-num"><div class="ps-circle" style="background:var(--amber)">3</div><div class="ps-line"></div></div>
+          <div class="ps-body">
+            <div class="ps-tag tag-rb">Từ Ràng buộc 2 (flow)</div>
+            <div class="ps-title">self_loop[1,2] = 0 tự động (KTV2 không thể bỏ qua KH1)</div>
+            <div class="ps-desc">RB1 nói: KH1 phải có đúng 1 cạnh vào tổng cộng. x[0,1,1]=1 đã thỏa RB1 cho KH1 → mọi cạnh vào KH1 của KTV2 phải = 0 → self_loop[1,2] = 1 (KTV2 bỏ qua KH1). Không cần thử.</div>
+            <div class="code-mini" style="margin-top:8px"><span class="c"># KH1 đã được KTV1 phục vụ</span>
+x[<span class="n">0</span>,<span class="n">1</span>,<span class="n">2</span>] = <span class="n">0</span>  <span class="c"># KTV2 không thể đến KH1</span>
+x[<span class="n">2</span>,<span class="n">1</span>,<span class="n">2</span>] = <span class="n">0</span>
+x[<span class="n">3</span>,<span class="n">1</span>,<span class="n">2</span>] = <span class="n">0</span>
+self_loop[<span class="n">1</span>,<span class="n">2</span>] = <span class="n">1</span>  <span class="c"># KTV2 bỏ qua KH1</span></div>
+          </div>
+        </div>
+
+        <div class="prop-step">
+          <div class="ps-num"><div class="ps-circle" style="background:var(--blue)">4</div><div class="ps-line"></div></div>
+          <div class="ps-body">
+            <div class="ps-tag tag-trigger">Solver chọn tiếp</div>
+            <div class="ps-title">Solver quyết định: x[1,3,1] = 1</div>
+            <div class="ps-desc">Từ KH1, solver thử KTV1 đi đến KH3. Đây là quyết định chủ động thứ hai — chỉ còn 2 lựa chọn (KH2 hoặc KH3) vì KH1 đã rồi.</div>
+          </div>
+        </div>
+
+        <div class="prop-step">
+          <div class="ps-num"><div class="ps-circle" style="background:var(--purple)">5</div><div class="ps-line"></div></div>
+          <div class="ps-body">
+            <div class="ps-tag tag-infer">Suy ra từ AddCircuit</div>
+            <div class="ps-title">AddCircuit ép x[3,0,1] = 1 — KTV1 phải về depot!</div>
+            <div class="ps-desc">KTV1 đã đi 0→1→3. AddCircuit biết: 2 node còn lại (2) có self_loop. Chỉ còn depot (0) chưa được visit. Node 3 phải có cạnh ra về 0. → <strong>x[3,0,1]=1 được suy ra hoàn toàn tự động</strong>, không cần thử.</div>
+            <div class="code-mini" style="margin-top:8px">x[<span class="n">3</span>,<span class="n">0</span>,<span class="n">1</span>] = <span class="n">1</span>  <span class="c"># bắt buộc — KTV1 về depot</span>
+x[<span class="n">3</span>,<span class="n">1</span>,<span class="n">1</span>] = <span class="n">0</span>  <span class="c"># suy ra</span>
+x[<span class="n">3</span>,<span class="n">2</span>,<span class="n">1</span>] = <span class="n">0</span>  <span class="c"># suy ra</span></div>
+          </div>
+        </div>
+
+        <div class="prop-step">
+          <div class="ps-num"><div class="ps-circle" style="background:var(--green)">6</div><div class="ps-line" style="display:none"></div></div>
+          <div class="ps-body">
+            <div class="ps-tag tag-ok">Kết quả</div>
+            <div class="ps-title">Từ 2 quyết định → 22 biến còn lại được suy ra tự động</div>
+            <div class="ps-desc">Solver chỉ thực sự <strong>"chọn"</strong> 2 biến (x[0,1,1] và x[1,3,1]). 22 biến còn lại được propagation suy ra. Đây là lý do CP-SAT nhanh hơn brute force tổ hợp 2²⁴ = 16 triệu lần thử rất nhiều.</div>
+          </div>
+        </div>
+
+      </div><!-- .prop-chain -->
+    </div>
+
+    <!-- Side panel -->
+    <div class="prop-side">
+      <div class="prop-vars">
+        <div class="pv-label">Trạng thái 24 biến x — sau 2 quyết định</div>
+        <div class="pv-row"><span class="pv-name">x[0,1,1]</span><span class="pv-val pv-one">= 1 ✓ (chọn)</span></div>
+        <div class="pv-row"><span class="pv-name">x[0,2,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[0,3,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[1,3,1]</span><span class="pv-val pv-one">= 1 ✓ (chọn)</span></div>
+        <div class="pv-row"><span class="pv-name">x[1,0,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[1,2,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[3,0,1]</span><span class="pv-val pv-infer">= 1 (bắt buộc!)</span></div>
+        <div class="pv-row"><span class="pv-name">x[3,1,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[3,2,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[2,*,1]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[*,1,2]</span><span class="pv-val pv-zero">= 0 (suy ra)</span></div>
+        <div class="pv-row"><span class="pv-name">x[0,2,2]</span><span class="pv-val pv-unknown">? (chưa biết)</span></div>
+        <div class="pv-row"><span class="pv-name">x[0,3,2]</span><span class="pv-val pv-unknown">? (chưa biết)</span></div>
+      </div>
+      <div class="prop-key-box">
+        <div class="pkb-title">🔑 Takeaway quan trọng</div>
+        <div class="pkb-body">
+          <strong>Solver không brute-force.</strong> Mỗi lần "thử" 1 biến, propagation tự suy ra hàng chục biến khác. Không gian tìm kiếm bị thu hẹp theo cấp số nhân.<br><br>
+          <strong>AddCircuit đặc biệt mạnh</strong> vì nó encode toàn bộ cấu trúc đồ thị — suy ra được nhiều hệ quả hơn so với các ràng buộc tuyến tính rời rạc.<br><br>
+          <strong>BoolVar giúp propagation nhanh hơn</strong> — solver có code path tối ưu riêng cho literal SAT, nhanh hơn IntVar nhiều.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ TAB 6: Nếu vi phạm ══ -->
+<div class="page" id="page-viol">
+<div class="p-wrap">
+  <div class="p-hero">
+    <div class="p-badge" style="background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber-bd)">Hiểu qua phản ví dụ</div>
+    <h1 class="p-h1">Nếu bỏ một ràng buộc — điều gì xảy ra?</h1>
+    <p class="p-sub">Cách hiểu sâu nhất là xem điều gì xảy ra khi <strong>thiếu</strong> từng ràng buộc. Mỗi ràng buộc bảo vệ một điều kiện cụ thể — bỏ đi thì solver tạo ra nghiệm sai theo cách riêng của nó.</p>
+  </div>
+
+  <div class="viol-tabs">
+    <button class="vt-btn active" onclick="showViol('rb1',this)">Bỏ Ràng buộc 1</button>
+    <button class="vt-btn" onclick="showViol('rb2',this)">Bỏ Ràng buộc 2</button>
+    <button class="vt-btn" onclick="showViol('circuit',this)">Bỏ AddCircuit</button>
+    <button class="vt-btn" onclick="showViol('workload',this)">Sai Workload</button>
+    <button class="vt-btn" onclick="showViol('minimax',this)">Sai Minimax</button>
+  </div>
+
+  <!-- RB1 -->
+  <div class="viol-panel active" id="vp-rb1">
+    <div class="viol-card">
+      <div class="vc-hdr2">
+        <div class="vc-icon2">❌</div>
+        <div class="vc-meta">
+          <div class="vc-title2">Bỏ ràng buộc 1: ∑x[i,j,k] = 1</div>
+          <div class="vc-sub2">Ràng buộc: mỗi KH phải được phục vụ đúng 1 lần</div>
+        </div>
+        <div class="vc-sev sev-high">Nghiêm trọng</div>
+      </div>
+      <div class="vc-body2">
+        <p style="font-size:13.5px;color:var(--text2);margin-bottom:12px">Không có ràng buộc này, solver được tự do bỏ sót hoặc phân công trùng lặp. Nó sẽ chọn bất kỳ phân công nào cho z nhỏ nhất — kể cả không hợp lệ.</p>
+        <div class="scenario-grid">
+          <div class="sc-box sc-bad">
+            <div class="sc-bad-t">❌ Nghiệm sai có thể xảy ra</div>
+            KTV 1: 0→1→2→0 (phục vụ KH1, KH2)<br>
+            KTV 2: 0→1→3→0 (<strong>KH1 bị phục vụ 2 lần!</strong>)<br>
+            KH3: không ai ghé (?)<br><br>
+            z = rất nhỏ vì solver "gian lận" — bỏ KH3, tải ít hơn
+          </div>
+          <div class="sc-box sc-ok">
+            <div class="sc-ok-t">✅ Có ràng buộc 1</div>
+            Solver bắt buộc: mỗi KH có đúng 1 cạnh vào.<br><br>
+            Không thể phục vụ 2 lần. Không thể bỏ sót. Mọi KH đều được phục vụ đúng 1 lần bởi đúng 1 KTV.
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;color:var(--text2)">
+          <strong style="color:var(--text)">Thực tế:</strong> Nếu bỏ RB1, solver trả về z = 0 hoặc rất nhỏ (vì có thể bỏ sót mọi KH) hoặc tạo ra phân công trùng. Kết quả pass checker về format nhưng sai về logic hoàn toàn.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RB2 -->
+  <div class="viol-panel" id="vp-rb2">
+    <div class="viol-card">
+      <div class="vc-hdr2">
+        <div class="vc-icon2">❌</div>
+        <div class="vc-meta">
+          <div class="vc-title2">Bỏ ràng buộc 2: ∑x[i,j,k] + self_loop[j,k] = 1</div>
+          <div class="vc-sub2">Ràng buộc flow bảo toàn cho từng KTV</div>
+        </div>
+        <div class="vc-sev sev-high">AddCircuit lỗi ngay</div>
+      </div>
+      <div class="vc-body2">
+        <p style="font-size:13.5px;color:var(--text2);margin-bottom:12px">Nếu bỏ RB2, self_loop không được quản lý đúng. AddCircuit nhận arcs có self_loop tự do → có thể tạo ra chu trình sai hoặc solver báo INFEASIBLE vô lý.</p>
+        <div class="scenario-grid">
+          <div class="sc-box sc-bad">
+            <div class="sc-bad-t">❌ Không có RB2</div>
+            self_loop[2,1] = 0 và x[*,2,1] = 0 đồng thời<br>→ Node 2 không có cạnh vào nào trong đồ thị KTV1<br>→ AddCircuit <strong>không thể tạo chu trình</strong><br>→ Solver báo INFEASIBLE dù bài toán có nghiệm!
+          </div>
+          <div class="sc-box sc-ok">
+            <div class="sc-ok-t">✅ Có RB2</div>
+            Với mọi cặp (j,k): tổng cạnh vào + self_loop = 1.<br><br>
+            Đảm bảo mọi node luôn có đúng 1 "đại diện" trong arcs của AddCircuit — dù KTV k có ghé hay không.
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;color:var(--text2)">
+          <strong style="color:var(--text)">Thực tế:</strong> Đây là lý do self_loop phải đi kèm RB2. Thiếu một trong hai đều làm AddCircuit hỏng. Chúng là bộ đôi không thể tách rời.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Circuit -->
+  <div class="viol-panel" id="vp-circuit">
+    <div class="viol-card">
+      <div class="vc-hdr2">
+        <div class="vc-icon2">❌</div>
+        <div class="vc-meta">
+          <div class="vc-title2">Bỏ AddCircuit — chỉ giữ flow RB1 + RB2</div>
+          <div class="vc-sub2">Không có ràng buộc chống subtour</div>
+        </div>
+        <div class="vc-sev sev-high">Subtour xuất hiện</div>
+      </div>
+      <div class="vc-body2">
+        <p style="font-size:13.5px;color:var(--text2);margin-bottom:12px">RB1+RB2 chỉ đảm bảo mỗi node có đúng 1 cạnh vào/ra — không đảm bảo tất cả tạo thành 1 vòng duy nhất qua depot. Solver có thể tạo subtour.</p>
+        <div class="scenario-grid">
+          <div class="sc-box sc-bad">
+            <div class="sc-bad-t">❌ Subtour — nghiệm sai</div>
+            KTV 1 tạo vòng: 1→2→1 (không qua depot)<br>
+            KTV 2 tạo vòng: 0→3→0<br><br>
+            Node 1 có 1 cạnh vào (từ 2), 1 cạnh ra (đến 2) → RB thỏa ✓<br>
+            Nhưng depot (0) không được đi qua! Tuyến vô nghĩa.
+          </div>
+          <div class="sc-box sc-ok">
+            <div class="sc-ok-t">✅ Có AddCircuit</div>
+            Tất cả cạnh được chọn phải tạo đúng 1 chu trình Hamiltonian.<br><br>
+            Không thể có vòng nhỏ không qua depot. Depot luôn là điểm xuất phát và kết thúc của mỗi tuyến.
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;color:var(--text2)">
+          <strong style="color:var(--text)">Thực tế:</strong> Nếu chỉ dùng RB1+RB2 mà không có AddCircuit, solver có thể tạo ra các "nghiệm" trông có vẻ hợp lệ về format nhưng KTV không bao giờ về depot. Hệ quả: in ra route nhưng truy vết sẽ bị lỗi hoặc tạo vòng vô tận.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workload -->
+  <div class="viol-panel" id="vp-workload">
+    <div class="viol-card">
+      <div class="vc-hdr2">
+        <div class="vc-icon2">⚠️</div>
+        <div class="vc-meta">
+          <div class="vc-title2">Lỗi thường gặp: d[j] if j != 0 else 0</div>
+          <div class="vc-sub2">Quên kiểm tra depot khi tính workload</div>
+        </div>
+        <div class="vc-sev sev-med">Sai kết quả</div>
+      </div>
+      <div class="vc-body2">
+        <p style="font-size:13.5px;color:var(--text2);margin-bottom:12px">Khi KTV quay về depot (cạnh j→0), không có thời gian phục vụ tại depot. Nếu quên điều kiện này và dùng d[0]=0 thì may mắn vẫn đúng — nhưng nếu d[0] vô tình có giá trị thì sai.</p>
+        <div class="scenario-grid">
+          <div class="sc-box sc-bad">
+            <div class="sc-bad-t">❌ Thiếu kiểm tra</div>
+            <code style="font-size:12px;font-family:monospace">service = d[j]</code><br><br>
+            Nếu d = [0, 5, 8, 6]: d[0]=0 → may mắn đúng<br>
+            Nhưng logic không rõ ràng — dễ bug khi thay đổi input
+          </div>
+          <div class="sc-box sc-ok">
+            <div class="sc-ok-t">✅ Đúng cách</div>
+            <code style="font-size:12px;font-family:monospace">service = d[j] if j != 0 else 0</code><br><br>
+            Tường minh: depot không có thời gian phục vụ. Code tự giải thích, không phụ thuộc vào giá trị d[0].
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;color:var(--text2)">
+          <strong style="color:var(--text)">Ví dụ số:</strong> KTV đi tuyến 0→1→3→0. Cạnh 3→0: matrix[3][0]=20, d[0]=0.<br>
+          Đúng: service = 0 (về depot không phục vụ ai) → đóng góp 20 phút.<br>
+          Nếu d[0] = 5 (giả sử): service sai = 5 → đóng góp 25 phút → y[k] sai → z sai.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimax -->
+  <div class="viol-panel" id="vp-minimax">
+    <div class="viol-card">
+      <div class="vc-hdr2">
+        <div class="vc-icon2">⚠️</div>
+        <div class="vc-meta">
+          <div class="vc-title2">Nhầm: Minimize(sum(y)) thay vì Minimize(z)</div>
+          <div class="vc-sub2">Min-sum vs Min-max — hai bài toán khác nhau hoàn toàn</div>
+        </div>
+        <div class="vc-sev sev-med">Sai mục tiêu</div>
+      </div>
+      <div class="vc-body2">
+        <p style="font-size:13.5px;color:var(--text2);margin-bottom:12px">Đây là lỗi logic phổ biến nhất. Code chạy được, không báo lỗi, nhưng <strong>giải sai bài toán</strong>. Kết quả trông hợp lý nhưng không tối ưu theo đúng tiêu chí.</p>
+        <div class="scenario-grid">
+          <div class="sc-box sc-bad">
+            <div class="sc-bad-t">❌ Minimize(sum(y)) — sai bài</div>
+            Tối thiểu tổng thời gian làm việc.<br><br>
+            Nghiệm có thể: y[1]=80, y[2]=5 → sum=85<br>
+            Hoặc: y[1]=50, y[2]=45 → sum=95<br><br>
+            Solver chọn phương án 1 (sum nhỏ hơn) → KTV1 làm 80 phút, KTV2 nghỉ gần hết! <strong>Không cân bằng tải.</strong>
+          </div>
+          <div class="sc-box sc-ok">
+            <div class="sc-ok-t">✅ Minimize(z) với z≥y[k] — đúng</div>
+            Tối thiểu workload của người bận nhất.<br><br>
+            Nghiệm: y[1]=50, y[2]=46 → z=50<br>
+            Thay vì: y[1]=80, y[2]=5 → z=80<br><br>
+            Solver chọn z=50 vì nhỏ hơn → phân công <strong>công bằng hơn</strong>.
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;color:var(--text2)">
+          <strong style="color:var(--text)">Tóm lại:</strong> Balanced Staff Routing yêu cầu <em>min-max makespan</em> — cân bằng tải. Min-sum tối ưu tổng hiệu suất nhưng không quan tâm ai làm nhiều nhất. Hai tiêu chí cho hai nghiệm hoàn toàn khác nhau.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+/* inject tabs 4, 5, 6 into nav */
+(function(){
+  const tabs = document.querySelector('.nav-tabs');
+  if (!tabs) return;
+  const defs = [
+    {id:'tab4btn', page:'mtz',  label:'⚖ AddCircuit vs MTZ'},
+    {id:'tab5btn', page:'prop', label:'⚡ Propagation'},
+    {id:'tab6btn', page:'viol', label:'💥 Nếu vi phạm'}
+  ];
+  defs.forEach(d => {
+    if (document.getElementById(d.id)) return;
+    const btn = document.createElement('button');
+    btn.id = d.id; btn.className = 'nav-tab';
+    btn.textContent = d.label;
+    const page = d.page;
+    const extra = d.page === 'mtz' ? drawSubtourCanvases : null;
+    btn.onclick = function(){ switchPage(page, this); if(extra) extra(); };
+    tabs.appendChild(btn);
+  });
+})();
+
+/* violation tab switcher */
+function showViol(id, btn) {
+  document.querySelectorAll('.viol-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('vp-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+/* draw subtour canvases */
+function drawSubtourCanvases() {
+  drawSubtour('c-subtour');
+  drawValid('c-valid');
+}
+function nodePos(id, w, h) {
+  const pos = [{x:.5,y:.15},{x:.15,y:.75},{x:.85,y:.75},{x:.5,y:.92}];
+  return {x:pos[id].x*w, y:pos[id].y*h};
+}
+function drawCanvas(cid, edges, colors, label) {
+  const c = document.getElementById(cid); if (!c) return;
+  const ctx = c.getContext('2d');
+  const W=c.width, H=c.height;
+  const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  ctx.fillStyle = isDark?'#2a2a28':'#fff'; ctx.fillRect(0,0,W,H);
+  const ns = [0,1,2,3].map(i=>nodePos(i,W,H));
+  const nc = ['#378add','#1d9e75','#1d9e75','#1d9e75'];
+  // draw edges
+  edges.forEach(([a,b,col]) => {
+    const dx=ns[b].x-ns[a].x, dy=ns[b].y-ns[a].y, len=Math.sqrt(dx*dx+dy*dy);
+    const ux=dx/len,uy=dy/len; const r=18;
+    ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2.2; ctx.globalAlpha=.9;
+    ctx.beginPath();
+    const sx=ns[a].x+ux*r, sy=ns[a].y+uy*r;
+    const ex=ns[b].x-ux*r, ey=ns[b].y-uy*r;
+    const cpx=(sx+ex)/2-dy*.2, cpy=(sy+ey)/2+dx*.2;
+    ctx.moveTo(sx,sy); ctx.quadraticCurveTo(cpx,cpy,ex,ey); ctx.stroke();
+    // arrow
+    const t=.85, aqx=(1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*ex, aqy=(1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ey;
+    const ang=Math.atan2(ey-aqy,ex-aqx);
+    ctx.translate(ex,ey); ctx.rotate(ang); ctx.fillStyle=col;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-7,-4); ctx.lineTo(-7,4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+  // draw nodes
+  ns.forEach((n,i) => {
+    ctx.beginPath(); ctx.arc(n.x,n.y,18,0,Math.PI*2);
+    ctx.fillStyle=nc[i]; ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i===0?'D':i, n.x, n.y);
+  });
+}
+function drawSubtour(cid) {
+  drawCanvas(cid,[
+    [1,2,'#ef9f27'],[2,1,'#ef9f27'],[0,3,'#6c5ce7'],[3,0,'#6c5ce7']
+  ]);
+}
+function drawValid(cid) {
+  drawCanvas(cid,[
+    [0,1,'#ef9f27'],[1,2,'#ef9f27'],[2,0,'#ef9f27'],[0,3,'#6c5ce7'],[3,0,'#6c5ce7']
+  ]);
+}
+</script>
