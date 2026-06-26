@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BSRM CP-SAT — Giải thích chi tiết code</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f9f8f5;
+    --bg2: #f1f0ec;
+    --bg3: #e8e7e2;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.09);
+    --border2: rgba(0,0,0,0.17);
+    --text: #1a1a18;
+    --text2: #5a5a55;
+    --text3: #8a8a85;
+    --info-bg: #e6f1fb;
+    --info-text: #0c447c;
+    --info-border: #85b7eb;
+    --ok-bg: #e1f5ee;
+    --ok-text: #085041;
+    --ok-border: #5dcaa5;
+    --warn-bg: #faeeda;
+    --warn-text: #633806;
+    --warn-border: #ef9f27;
+    --purple-bg: #eeedfe;
+    --purple-text: #3c3489;
+    --purple-border: #afa9ec;
+    --coral-bg: #faece7;
+    --coral-text: #712b13;
+    --coral-border: #f0997b;
+    --accent-blue: #378add;
+    --accent-green: #1d9e75;
+    --accent-amber: #ef9f27;
+    --code-bg: #1a1a2e;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #242422; --bg3: #2e2e2b;
+      --surface: #2a2a28; --border: rgba(255,255,255,0.09); --border2: rgba(255,255,255,0.17);
+      --text: #e8e7e2; --text2: #a0a09a; --text3: #6a6a65;
+      --info-bg: #042c53; --info-text: #b5d4f4; --info-border: #185fa5;
+      --ok-bg: #04342c; --ok-text: #9fe1cb; --ok-border: #0f6e56;
+      --warn-bg: #412402; --warn-text: #fac775; --warn-border: #854f0b;
+      --purple-bg: #26215c; --purple-text: #cecbf6; --purple-border: #534ab7;
+      --coral-bg: #4a1b0c; --coral-text: #f5c4b3; --coral-border: #993c1d;
+    }
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--surface); border-bottom: 0.5px solid var(--border2);
+    padding: 18px 32px; display: flex; align-items: center; gap: 14px;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .header-icon { width: 36px; height: 36px; border-radius: 9px; background: var(--info-bg); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  header h1 { font-size: 16px; font-weight: 600; color: var(--text); }
+  header p  { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .header-badge { margin-left: auto; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 20px; background: var(--ok-bg); color: var(--ok-text); border: 0.5px solid var(--ok-border); white-space: nowrap; }
+
+  .layout { display: flex; max-width: 1140px; margin: 0 auto; min-height: calc(100vh - 72px); }
+
+  aside {
+    width: 210px; flex-shrink: 0; padding: 22px 14px;
+    border-right: 0.5px solid var(--border);
+    position: sticky; top: 72px; height: calc(100vh - 72px); overflow-y: auto;
+  }
+  .sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--text3); text-transform: uppercase; padding: 0 8px; margin-bottom: 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 8px; cursor: pointer;
+    border: none; background: none; width: 100%; text-align: left;
+    color: var(--text2); font-size: 13px; font-family: inherit; transition: background .12s;
+  }
+  .nav-item:hover { background: var(--bg2); color: var(--text); }
+  .nav-item.active { background: var(--bg3); color: var(--text); font-weight: 500; }
+  .nav-num { width: 21px; height: 21px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; background: var(--bg3); color: var(--text2); }
+  .nav-item.active .nav-num { background: var(--text); color: var(--bg); }
+
+  main { flex: 1; padding: 30px 38px; min-width: 0; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 0.5px solid var(--border); }
+  .step-badge { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; white-space: nowrap; }
+  .badge-gray   { background: var(--bg3); color: var(--text2); border: 0.5px solid var(--border2); }
+  .badge-blue   { background: var(--info-bg); color: var(--info-text); border: 0.5px solid var(--info-border); }
+  .badge-purple { background: var(--purple-bg); color: var(--purple-text); border: 0.5px solid var(--purple-border); }
+  .badge-amber  { background: var(--warn-bg); color: var(--warn-text); border: 0.5px solid var(--warn-border); }
+  .badge-green  { background: var(--ok-bg); color: var(--ok-text); border: 0.5px solid var(--ok-border); }
+  .badge-coral  { background: var(--coral-bg); color: var(--coral-text); border: 0.5px solid var(--coral-border); }
+  .step-title { font-size: 18px; font-weight: 600; color: var(--text); }
+
+  /* CODE */
+  .code-block {
+    background: var(--code-bg); border-radius: 10px;
+    padding: 16px 20px; margin: 0 0 20px;
+    overflow-x: auto; font-family: 'SFMono-Regular','Fira Code',Consolas,monospace;
+    font-size: 13px; line-height: 1.85; border: 0.5px solid rgba(255,255,255,0.06);
+  }
+  .kw { color: #c792ea; } .fn { color: #82aaff; } .st { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; } .vr { color: #f8f8f2; }
+  .nm { color: #f78c6c; } .op { color: #89ddff; }
+
+  /* INLINE CODE PILLS */
+  .ck        { display:inline-block; font-family:'SFMono-Regular',Consolas,monospace; font-size:12px; background:var(--bg2); border:0.5px solid var(--border2); border-radius:4px; padding:1px 6px; color:var(--info-text); }
+  .ck-warn   { color:var(--warn-text); background:var(--warn-bg); border-color:var(--warn-border); }
+  .ck-ok     { color:var(--ok-text); background:var(--ok-bg); border-color:var(--ok-border); }
+  .ck-purple { color:var(--purple-text); background:var(--purple-bg); border-color:var(--purple-border); }
+  .ck-coral  { color:var(--coral-text); background:var(--coral-bg); border-color:var(--coral-border); }
+
+  /* SECTION LABEL */
+  .sec-label { font-size: 10px; font-weight: 700; letter-spacing:.07em; color:var(--text3); text-transform:uppercase; margin:0 0 10px; }
+
+  .prose { font-size: 14px; line-height: 1.8; color: var(--text); margin: 0 0 14px; }
+
+  /* LINE-BY-LINE TABLE — main teaching tool */
+  .line-table { border:0.5px solid var(--border2); border-radius:10px; overflow:hidden; margin:0 0 20px; }
+  .line-row { display:grid; grid-template-columns: 42% 58%; }
+  .line-row + .line-row { border-top:0.5px solid var(--border); }
+  .line-row .col-code {
+    background: #1a1a2e; padding:13px 16px;
+    font-family:'SFMono-Regular',Consolas,monospace; font-size:12.5px; line-height:1.75;
+    border-right:0.5px solid #2e2e4a; color:#f8f8f2; word-break:break-all;
+  }
+  .line-row .col-note { background:var(--bg2); padding:13px 16px; font-size:13.5px; line-height:1.75; color:var(--text); }
+  .col-note strong { font-weight:600; }
+
+  /* CALLOUT BLOCKS */
+  .why-block, .example-block, .warn-block {
+    border-radius: 0 8px 8px 0; padding:13px 16px; margin:14px 0;
+    font-size:13.5px; line-height:1.75; color:var(--text);
+  }
+  .why-block     { border-left:3px solid var(--accent-blue);  background:color-mix(in srgb,var(--info-bg)  25%,transparent); }
+  .example-block { border-left:3px solid var(--accent-green); background:color-mix(in srgb,var(--ok-bg)   25%,transparent); }
+  .warn-block    { border-left:3px solid var(--accent-amber); background:color-mix(in srgb,var(--warn-bg) 25%,transparent); }
+  .block-label { font-size:11px; font-weight:700; margin-bottom:5px; }
+  .lbl-why  { color:var(--info-text); }
+  .lbl-ex   { color:var(--ok-text); }
+  .lbl-warn { color:var(--warn-text); }
+
+  .eq-box { text-align:center; font-family:'SFMono-Regular',Consolas,monospace; font-size:14px; background:var(--bg2); border-radius:8px; padding:13px; margin:12px 0 16px; border:0.5px solid var(--border2); color:var(--text); }
+
+  .output-box { background:var(--code-bg); border-radius:8px; padding:13px 18px; font-family:'SFMono-Regular',Consolas,monospace; font-size:13px; line-height:1.9; color:#f8f8f2; margin:10px 0; border:0.5px solid rgba(255,255,255,0.06); }
+
+  hr { border:none; border-top:0.5px solid var(--border); margin:22px 0; }
+
+  /* MOBILE */
+  .mobile-nav { display:none; gap:6px; flex-wrap:wrap; padding:12px 18px; border-bottom:0.5px solid var(--border); background:var(--surface); }
+  .mob-btn { font-size:11px; padding:4px 10px; border-radius:16px; cursor:pointer; border:0.5px solid var(--border2); background:var(--bg2); color:var(--text2); font-family:inherit; }
+  .mob-btn.active { background:var(--text); color:var(--bg); }
+  @media (max-width:700px) {
+    aside { display:none; }
+    main { padding:18px 16px; }
+    header { padding:13px 16px; }
+    .mobile-nav { display:flex; }
+    .line-row { grid-template-columns:1fr; }
+    .col-code { border-right:none; border-bottom:0.5px solid #2e2e4a; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">🛠</div>
+  <div>
+    <h1>BSRM CP-SAT — Giải thích chi tiết code</h1>
+    <p>Balanced Staff Routing · OR-Tools CP-SAT · Python · N khách hàng, K kỹ thuật viên</p>
+  </div>
+  <span class="header-badge">✓ Google OR-Tools</span>
+</header>
+
+<div class="mobile-nav">
+  <button class="mob-btn active" onclick="show('input',this)">1. Input</button>
+  <button class="mob-btn" onclick="show('vars',this)">2. Biến</button>
+  <button class="mob-btn" onclick="show('c1',this)">3. RB phục vụ</button>
+  <button class="mob-btn" onclick="show('c2',this)">4. RB luồng</button>
+  <button class="mob-btn" onclick="show('circuit',this)">5. Circuit</button>
+  <button class="mob-btn" onclick="show('workload',this)">6. Workload</button>
+  <button class="mob-btn" onclick="show('minimax',this)">7. Minimax</button>
+  <button class="mob-btn" onclick="show('solve',this)">8. Giải</button>
+</div>
+
+<div class="layout">
+<aside>
+  <div class="sidebar-label">Các bước</div>
+  <button class="nav-item active" onclick="show('input',this)"><span class="nav-num">1</span>Đọc đầu vào</button>
+  <button class="nav-item" onclick="show('vars',this)"><span class="nav-num">2</span>Khai báo biến</button>
+  <button class="nav-item" onclick="show('c1',this)"><span class="nav-num">3</span>RB phục vụ</button>
+  <button class="nav-item" onclick="show('c2',this)"><span class="nav-num">4</span>RB luồng</button>
+  <button class="nav-item" onclick="show('circuit',this)"><span class="nav-num">5</span>AddCircuit</button>
+  <button class="nav-item" onclick="show('workload',this)"><span class="nav-num">6</span>Workload</button>
+  <button class="nav-item" onclick="show('minimax',this)"><span class="nav-num">7</span>Minimax</button>
+  <button class="nav-item" onclick="show('solve',this)"><span class="nav-num">8</span>Giải &amp; xuất</button>
+</aside>
+
+<main>
+
+<!-- ══════════════════════════════════════════
+     1. INPUT
+══════════════════════════════════════════ -->
+<div class="section active" id="s-input">
+  <div class="step-header">
+    <span class="step-badge badge-gray">Bước 1</span>
+    <h2 class="step-title">Đọc đầu vào — N, K, d[], matrix[][]</h2>
+  </div>
+
+  <div class="code-block"><span class="kw">import</span> <span class="vr">sys</span>
+<span class="vr">input</span> <span class="op">=</span> <span class="vr">sys</span>.<span class="vr">stdin</span>.<span class="fn">readline</span>
+<span class="vr">N</span>, <span class="vr">K</span> <span class="op">=</span> <span class="fn">map</span>(<span class="vr">int</span>, <span class="fn">input</span>().<span class="fn">split</span>())
+<span class="vr">d</span> <span class="op">=</span> [<span class="nm">0</span>] <span class="op">+</span> <span class="fn">list</span>(<span class="fn">map</span>(<span class="vr">int</span>, <span class="fn">input</span>().<span class="fn">split</span>()))
+<span class="vr">matrix</span> <span class="op">=</span> []
+<span class="kw">for</span> <span class="vr">_</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="vr">matrix</span>.<span class="fn">append</span>(<span class="fn">list</span>(<span class="fn">map</span>(<span class="vr">int</span>, <span class="fn">input</span>().<span class="fn">split</span>())))</div>
+
+  <p class="sec-label">Phân tích từng dòng</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">import sys<br>input = sys.stdin.readline</div>
+      <div class="col-note">Ghi đè hàm <span class="ck">input()</span> mặc định bằng <span class="ck">sys.stdin.readline</span> — đọc nhanh hơn nhiều khi dữ liệu lớn, tránh TLE trong bài thi.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">N, K = map(int, input().split())</div>
+      <div class="col-note"><span class="ck">input().split()</span> tách dòng thành list chuỗi, <span class="ck">map(int, ...)</span> chuyển từng phần thành số nguyên. <span class="ck">N</span> = số khách hàng, <span class="ck">K</span> = số kỹ thuật viên.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">d = [0] + list(map(int,<br>&nbsp;&nbsp;&nbsp;&nbsp;input().split()))</div>
+      <div class="col-note">Đọc N số (thời gian phục vụ từng KH), rồi <strong>thêm 0 vào đầu</strong> để <span class="ck">d[0] = 0</span> (depot không cần phục vụ). Nhờ đó toàn bộ code sau dùng chỉ số 0..N thống nhất — node 0 là depot, node 1..N là khách hàng.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">matrix = []<br>for _ in range(N + 1):<br>&nbsp;&nbsp;matrix.append(...)</div>
+      <div class="col-note">Đọc <span class="ck">N+1</span> dòng (dòng 0 = hàng từ depot, dòng 1..N = hàng từ từng KH). Kết quả: <span class="ck">matrix[i][j]</span> = thời gian di chuyển từ điểm i đến điểm j. Dùng <span class="ck">_</span> vì không cần biến đếm.</div>
+    </div>
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — N=3, K=2</div>
+    Dòng 1: <span class="ck">3 2</span> → N=3, K=2<br>
+    Dòng 2: <span class="ck">5 8 6</span> → d = [<span class="ck-ok">0</span>, 5, 8, 6] &nbsp;(0 được chèn vào đầu)<br>
+    Dòng 3: <span class="ck">0 10 15 20</span> → matrix[0] — từ depot: đến KH1 mất 10, KH2 mất 15, KH3 mất 20<br>
+    Dòng 4: <span class="ck">10 0 12 18</span> → matrix[1] — từ KH1: về depot mất 10, đến KH2 mất 12, KH3 mất 18<br>
+    Dòng 5..6 tương tự cho KH2, KH3.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     2. VARS
+══════════════════════════════════════════ -->
+<div class="section" id="s-vars">
+  <div class="step-header">
+    <span class="step-badge badge-blue">Bước 2</span>
+    <h2 class="step-title">Khai báo biến quyết định</h2>
+  </div>
+
+  <div class="why-block" style="margin-bottom:18px;">
+    <div class="block-label lbl-why">Tư duy CP-SAT — tại sao phải khai báo biến?</div>
+    CP-SAT không chạy code tuần tự như Python thông thường. Ta phải <strong>mô tả bài toán</strong>: khai báo những gì chưa biết (biến), sau đó thêm các luật phải thỏa (ràng buộc). Solver tự tìm giá trị cho biến. Đây là lập trình khai báo, không phải lập trình mệnh lệnh.
+  </div>
+
+  <div class="code-block"><span class="vr">model</span> <span class="op">=</span> <span class="vr">cp_model</span>.<span class="fn">CpModel</span>()</div>
+
+  <div class="line-table" style="margin-bottom:20px;">
+    <div class="line-row">
+      <div class="col-code">model = cp_model.CpModel()</div>
+      <div class="col-note">Tạo một mô hình tối ưu rỗng. Toàn bộ biến và ràng buộc sẽ được thêm vào đối tượng <span class="ck">model</span> này. Chưa tính toán gì cả — chỉ là khởi tạo "tờ giấy trắng".</div>
+    </div>
+  </div>
+
+  <div class="code-block"><span class="cm"># Biến nhị phân x[i,j,k]: KTV k có đi cạnh i→j không?</span>
+<span class="vr">x</span> <span class="op">=</span> {}
+<span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+            <span class="kw">if</span> <span class="vr">i</span> <span class="op">!=</span> <span class="vr">j</span>:
+                <span class="vr">x</span>[<span class="vr">i</span>, <span class="vr">j</span>, <span class="vr">k</span>] <span class="op">=</span> <span class="vr">model</span>.<span class="fn">NewBoolVar</span>(<span class="st">f"x[{i}][{j}][{k}]"</span>)</div>
+
+  <p class="sec-label">Phân tích từng dòng — biến x</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">x = {}</div>
+      <div class="col-note">Dùng <strong>dictionary</strong> thay vì mảng 3 chiều vì Python không có mảng 3D tĩnh và tuple <span class="ck">(i,j,k)</span> làm key rất tiện. Mỗi key là 1 cạnh cụ thể của 1 KTV cụ thể.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">for k in range(1, K+1):<br>&nbsp;for i in range(N+1):<br>&nbsp;&nbsp;for j in range(N+1):</div>
+      <div class="col-note">3 vòng lặp lồng nhau tạo ra tất cả tổ hợp (KTV, điểm đi, điểm đến). Vòng k chạy từ 1..K (KTV), vòng i và j chạy từ 0..N (depot + KH).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">if i != j:</div>
+      <div class="col-note">Loại bỏ cạnh từ một điểm đến chính nó (i→i vô nghĩa). Không cần biến cho trường hợp này — tiết kiệm biến và tránh ràng buộc thừa.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">x[i,j,k] = model.NewBoolVar(...)</div>
+      <div class="col-note"><span class="ck">NewBoolVar</span> tạo biến nhị phân: chỉ nhận giá trị <span class="ck-ok">0</span> hoặc <span class="ck-ok">1</span>. Bằng <span class="ck-ok">1</span> = KTV k đi cạnh i→j, bằng <span class="ck-warn">0</span> = không. Chuỗi tên <span class="ck">f"x[{i}][{j}][{k}]"</span> chỉ để debug, không ảnh hưởng solver.<br><br><strong>Tổng số biến x: </strong>K × (N+1) × N — ví dụ N=3,K=2 tạo ra 2×4×3 = <strong>24 biến</strong>.</div>
+    </div>
+  </div>
+
+  <div class="code-block"><span class="cm"># Upper bound: trường hợp tệ nhất 1 KTV làm tất cả</span>
+<span class="vr">UB</span> <span class="op">=</span> <span class="vr">N</span> <span class="op">*</span> <span class="fn">max</span>(<span class="vr">matrix</span>[<span class="vr">i</span>][<span class="vr">j</span>]
+         <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span><span class="op">+</span><span class="nm">1</span>)
+         <span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span><span class="op">+</span><span class="nm">1</span>) <span class="kw">if</span> <span class="vr">i</span> <span class="op">!=</span> <span class="vr">j</span>) <span class="op">+</span> <span class="fn">sum</span>(<span class="vr">d</span>)</div>
+
+  <p class="sec-label">Phân tích — upper bound UB</p>
+  <div class="line-table" style="margin-bottom:20px;">
+    <div class="line-row">
+      <div class="col-code">N * max(matrix[i][j]...)</div>
+      <div class="col-note">Tình huống tệ nhất về di chuyển: 1 KTV đi N cạnh liên tiếp, mỗi cạnh đều có khoảng cách lớn nhất trong ma trận. Nhân N cạnh × max khoảng cách.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">+ sum(d)</div>
+      <div class="col-note">Cộng thêm toàn bộ thời gian phục vụ tất cả N khách hàng (trường hợp 1 KTV phục vụ tất cả). <span class="ck">UB</span> là giới hạn trên đảm bảo mọi lời giải khả thi đều nằm trong khoảng [0, UB] — dùng làm domain cho <span class="ck">y[k]</span> và <span class="ck">z</span>.</div>
+    </div>
+  </div>
+
+  <div class="code-block"><span class="cm"># y[k] = tổng workload của KTV k</span>
+<span class="vr">y</span> <span class="op">=</span> {}
+<span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="vr">y</span>[<span class="vr">k</span>] <span class="op">=</span> <span class="vr">model</span>.<span class="fn">NewIntVar</span>(<span class="nm">0</span>, <span class="vr">UB</span>, <span class="st">f"y[{k}]"</span>)
+
+<span class="cm"># self_loop[i,k] = 1 khi KTV k bỏ qua KH i</span>
+<span class="vr">self_loop</span> <span class="op">=</span> {}
+<span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="vr">self_loop</span>[<span class="vr">i</span>, <span class="vr">k</span>] <span class="op">=</span> <span class="vr">model</span>.<span class="fn">NewBoolVar</span>(<span class="st">f"sl[{i}][{k}]"</span>)
+
+<span class="cm"># z = workload lớn nhất trong tất cả KTV (cần minimize)</span>
+<span class="vr">z</span> <span class="op">=</span> <span class="vr">model</span>.<span class="fn">NewIntVar</span>(<span class="nm">0</span>, <span class="vr">UB</span>, <span class="st">"z"</span>)</div>
+
+  <p class="sec-label">Phân tích — biến y, self_loop, z</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">y[k] = model.NewIntVar(0, UB, ...)</div>
+      <div class="col-note"><span class="ck">NewIntVar(lo, hi, name)</span> tạo biến nguyên trong khoảng [0, UB]. <span class="ck">y[k]</span> sẽ được gán bằng tổng workload của KTV k thông qua ràng buộc ở bước 6. Hiện tại solver chỉ biết domain, chưa biết giá trị.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">for i in range(1, N+1):<br>&nbsp;self_loop[i,k] = NewBoolVar(...)</div>
+      <div class="col-note"><span class="ck">self_loop[i,k]</span> = <span class="ck-ok">1</span> khi KTV k <strong>không</strong> ghé KH i. Chỉ tạo cho node 1..N (KH), không tạo cho node 0 (depot) vì depot luôn được thăm. Biến này cần thiết để <span class="ck">AddCircuit</span> hoạt động đúng (giải thích chi tiết ở bước 4 &amp; 5).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">z = model.NewIntVar(0, UB, "z")</div>
+      <div class="col-note"><span class="ck">z</span> đại diện cho workload của KTV bận nhất. Solver sẽ minimize z, buộc phân công công bằng nhất có thể. Đây là biến mục tiêu — giá trị cuối cùng sau khi giải là kết quả bài toán.<br><br><strong>Tóm tắt:</strong> x quyết định ai đi đâu → y[k] tổng hợp kết quả → z lấy max → minimize z.</div>
+    </div>
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — N=3, K=2</div>
+    Biến x: 2 × 4 × 3 = <strong>24 biến BoolVar</strong><br>
+    Biến y: K = <strong>2 biến IntVar</strong> — y[1] và y[2]<br>
+    Self_loop: K × N = 2 × 3 = <strong>6 biến BoolVar</strong><br>
+    z: <strong>1 biến IntVar</strong> — là mục tiêu cần tối thiểu<br>
+    UB = 3 × 20 + 19 = <strong>79 phút</strong> — không KTV nào làm quá 79 phút
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     3. C1
+══════════════════════════════════════════ -->
+<div class="section" id="s-c1">
+  <div class="step-header">
+    <span class="step-badge badge-purple">Bước 3</span>
+    <h2 class="step-title">Ràng buộc 1 — mỗi khách hàng được phục vụ đúng 1 lần</h2>
+  </div>
+
+  <div class="code-block"><span class="cm"># Mỗi KH j phải có đúng 1 cạnh đi vào (từ bất kỳ KTV nào)</span>
+<span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="vr">model</span>.<span class="fn">Add</span>(
+        <span class="fn">sum</span>(
+            <span class="vr">x</span>[<span class="vr">i</span>, <span class="vr">j</span>, <span class="vr">k</span>]
+            <span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>)
+            <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>) <span class="kw">if</span> <span class="vr">i</span> <span class="op">!=</span> <span class="vr">j</span>
+        ) <span class="op">==</span> <span class="nm">1</span>
+    )</div>
+
+  <p class="sec-label">Phân tích từng dòng</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">for j in range(1, N + 1):</div>
+      <div class="col-note">Lặp qua từng <strong>khách hàng</strong> j (từ 1 đến N). Bắt đầu từ 1, không bao gồm 0 vì depot không cần "được phục vụ" — depot là điểm xuất phát/kết thúc, không phải điểm đến làm việc.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">model.Add( sum(...) == 1 )</div>
+      <div class="col-note"><span class="ck">model.Add</span> đăng ký 1 ràng buộc vào model. Ràng buộc này nói: tổng số cạnh đi vào j phải bằng đúng 1. Solver sẽ đảm bảo điều này khi tìm nghiệm.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">sum( x[i, j, k]<br>&nbsp;&nbsp;for k in range(1, K+1)<br>&nbsp;&nbsp;for i in range(N+1) if i != j )</div>
+      <div class="col-note">Đây là <strong>tổng tất cả cạnh đi vào j</strong>: gộp mọi KTV k và mọi điểm xuất phát i (trừ i=j). Vì x là BoolVar (0 hoặc 1), tổng này = số cạnh được chọn đi vào j.<br><br>
+      Ví dụ N=3, K=2, j=2: sum gồm x[0,2,1] + x[1,2,1] + x[3,2,1] + x[0,2,2] + x[1,2,2] + x[3,2,2] — tổng cộng 6 hạng tử.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">== 1</div>
+      <div class="col-note">Tổng phải bằng đúng <span class="ck-ok">1</span>. Không phải <span class="ck">≥ 1</span> (cho phép 2 KTV cùng ghé = sai) và không phải <span class="ck">≤ 1</span> (cho phép không ai ghé = sai). Đúng 1 nghĩa là đúng 1 KTV phục vụ đúng 1 lần.</div>
+    </div>
+  </div>
+
+  <div class="why-block">
+    <div class="block-label lbl-why">Tại sao cần ràng buộc này?</div>
+    Nếu bỏ qua: solver có thể để 2 KTV cùng ghé 1 KH (lãng phí công sức) hoặc bỏ sót 1 KH (vi phạm yêu cầu bài toán). Ràng buộc này là điều kiện <strong>assignment</strong> cơ bản nhất — mỗi khách hàng phải được phục vụ đúng 1 lần bởi đúng 1 người.
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — N=3, K=2, cho j=2</div>
+    Ràng buộc được tạo: x[0,2,1] + x[1,2,1] + x[3,2,1] + x[0,2,2] + x[1,2,2] + x[3,2,2] = 1<br><br>
+    Nếu KTV 1 phục vụ KH 2 (đi từ KH 1 đến KH 2): x[1,2,1] = <span class="ck-ok">1</span>, các biến còn lại = 0.<br>
+    Tổng = 1 ✓ — ràng buộc thỏa. Solver chấp nhận phân công này.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     4. C2
+══════════════════════════════════════════ -->
+<div class="section" id="s-c2">
+  <div class="step-header">
+    <span class="step-badge badge-purple">Bước 4</span>
+    <h2 class="step-title">Ràng buộc 2 — bảo toàn luồng cho từng KTV riêng lẻ</h2>
+  </div>
+
+  <div class="code-block"><span class="cm"># Với mỗi cặp (KH j, KTV k): hoặc k đến j, hoặc k bỏ qua j</span>
+<span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="vr">model</span>.<span class="fn">Add</span>(
+            <span class="fn">sum</span>(<span class="vr">x</span>[<span class="vr">i</span>, <span class="vr">j</span>, <span class="vr">k</span>]
+                <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span><span class="op">+</span><span class="nm">1</span>) <span class="kw">if</span> <span class="vr">i</span> <span class="op">!=</span> <span class="vr">j</span>)
+            <span class="op">+</span> <span class="vr">self_loop</span>[<span class="vr">j</span>, <span class="vr">k</span>]
+            <span class="op">==</span> <span class="nm">1</span>
+        )</div>
+
+  <p class="sec-label">Phân tích từng dòng</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">for j in range(1, N+1):<br>&nbsp;for k in range(1, K+1):</div>
+      <div class="col-note">Hai vòng lặp lồng nhau tạo <strong>N × K ràng buộc</strong>. Mỗi ràng buộc xét riêng 1 cặp (KH j, KTV k) — khác với bước 3 là gộp chung tất cả KTV. Bước này nói về từng KTV cụ thể.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">sum( x[i, j, k]<br>&nbsp;for i in range(N+1) if i != j )</div>
+      <div class="col-note">Đếm số cạnh của <strong>riêng KTV k</strong> đi vào điểm j. Vì x là BoolVar, kết quả chỉ có thể là <span class="ck-ok">0</span> (k không đến j) hoặc <span class="ck-ok">1</span> (k đến j từ đâu đó).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">+ self_loop[j, k]</div>
+      <div class="col-note">Cộng thêm biến self_loop — đây là "cạnh ảo" j→j, chỉ bật lên khi KTV k <strong>không</strong> ghé KH j.<br><br>
+      Logic bù nhau: nếu sum = 1 (k đến j) → self_loop bắt buộc = 0.<br>
+      Nếu sum = 0 (k không đến j) → self_loop bắt buộc = 1.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">== 1</div>
+      <div class="col-note">Tổng luôn bằng 1 — đảm bảo với bất kỳ KTV k nào: mỗi node j đều có đúng 1 "cạnh vào" trong đồ thị của KTV đó (kể cả cạnh ảo self_loop). Đây là điều kiện tiên quyết để <span class="ck">AddCircuit</span> ở bước sau hoạt động đúng.</div>
+    </div>
+  </div>
+
+  <div class="warn-block">
+    <div class="block-label lbl-warn">Tại sao cần self_loop — không thể bỏ qua được sao?</div>
+    <span class="ck">AddCircuit</span> yêu cầu mỗi node trong đồ thị phải có <strong>đúng 1 cạnh vào và 1 cạnh ra</strong>. Nếu KTV k không ghé KH j, node j hoàn toàn không có cạnh nào trong đồ thị của KTV k — vi phạm yêu cầu AddCircuit ngay lập tức.<br><br>
+    Self_loop giải quyết: nó là "cạnh ảo" j→j nói với AddCircuit rằng "node j đã được xử lý, KTV k chỉ đơn giản là bỏ qua nó". Mô hình hợp lệ, solver không bị lỗi.
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — j=2, k=1, xét 2 tình huống</div>
+    <strong>TH1: KTV 1 phục vụ KH 2</strong> (giả sử đi từ KH 1 đến KH 2)<br>
+    &nbsp;&nbsp;x[1,2,1] = 1, các x[*,2,1] còn lại = 0 → sum = 1<br>
+    &nbsp;&nbsp;→ self_loop[2,1] bắt buộc = 0 &nbsp; (1 + 0 = <span class="ck-ok">1</span> ✓)<br><br>
+    <strong>TH2: KTV 1 không ghé KH 2</strong> (KTV 2 phục vụ KH 2)<br>
+    &nbsp;&nbsp;Tất cả x[*,2,1] = 0 → sum = 0<br>
+    &nbsp;&nbsp;→ self_loop[2,1] bắt buộc = 1 &nbsp; (0 + 1 = <span class="ck-ok">1</span> ✓)
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     5. CIRCUIT
+══════════════════════════════════════════ -->
+<div class="section" id="s-circuit">
+  <div class="step-header">
+    <span class="step-badge badge-amber">Bước 5</span>
+    <h2 class="step-title">AddCircuit — loại trừ subtour, đảm bảo tuyến hợp lệ</h2>
+  </div>
+
+  <div class="code-block"><span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="vr">arcs</span> <span class="op">=</span> []
+
+    <span class="cm"># Thêm cạnh tự vòng: KTV k bỏ qua KH i</span>
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="vr">arcs</span>.<span class="fn">append</span>((<span class="vr">i</span>, <span class="vr">i</span>, <span class="vr">self_loop</span>[<span class="vr">i</span>, <span class="vr">k</span>]))
+
+    <span class="cm"># Thêm cạnh thật: KTV k di chuyển từ i đến j</span>
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+            <span class="kw">if</span> <span class="vr">i</span> <span class="op">!=</span> <span class="vr">j</span>:
+                <span class="vr">arcs</span>.<span class="fn">append</span>((<span class="vr">i</span>, <span class="vr">j</span>, <span class="vr">x</span>[<span class="vr">i</span>, <span class="vr">j</span>, <span class="vr">k</span>]))
+
+    <span class="vr">model</span>.<span class="fn">AddCircuit</span>(<span class="vr">arcs</span>)</div>
+
+  <p class="sec-label">Phân tích từng dòng</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">for k in range(1, K+1):</div>
+      <div class="col-note">Mỗi KTV k có <strong>đồ thị riêng</strong> — ta gọi AddCircuit K lần, mỗi lần cho 1 KTV. Các KTV hoàn toàn độc lập với nhau ở bước này.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">arcs = []</div>
+      <div class="col-note">Khởi tạo danh sách cạnh cho KTV k. Mỗi phần tử trong arcs là tuple <span class="ck">(node_từ, node_đến, biến_bool)</span> — biến bool quyết định cạnh này có được chọn không.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">for i in range(1, N+1):<br>&nbsp;arcs.append((i, i, self_loop[i,k]))</div>
+      <div class="col-note">Thêm <strong>cạnh tự vòng</strong> cho từng KH i: tuple (i, i, self_loop[i,k]). Khi self_loop[i,k] = 1 (KTV k bỏ qua KH i), cạnh ảo i→i được "bật" — node i được coi là đã xử lý trong chu trình.<br><br>Lưu ý: chỉ KH (1..N) cần self_loop, depot (0) luôn được đi qua nên không cần.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">for i in range(N+1):<br>&nbsp;for j in range(N+1): if i!=j:<br>&nbsp;&nbsp;arcs.append((i,j,x[i,j,k]))</div>
+      <div class="col-note">Thêm tất cả <strong>cạnh thật</strong>: với mỗi cặp (i,j) hợp lệ, thêm tuple (i, j, x[i,j,k]). Khi x[i,j,k] = 1 (KTV k đi từ i đến j), cạnh này được "bật" trong chu trình.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">model.AddCircuit(arcs)</div>
+      <div class="col-note">Ràng buộc cốt lõi: OR-Tools kiểm tra toàn bộ arcs và đảm bảo các cạnh được chọn (biến = 1) tạo thành <strong>đúng 1 chu trình Hamiltonian</strong> qua tất cả node — không thiếu, không thừa, không subtour.<br><br>AddCircuit mạnh hơn MTZ (phương pháp cũ): không cần biến thời gian phụ O(N²), tích hợp sẵn propagation của CP-SAT.</div>
+    </div>
+  </div>
+
+  <div class="warn-block">
+    <div class="block-label lbl-warn">Subtour là gì và tại sao phải loại trừ?</div>
+    Nếu không có AddCircuit, solver có thể tạo ra: KTV 1 đi vòng 1→2→1 (không qua depot), KTV 2 đi 3→3. Mỗi node đều có cạnh vào/ra nhưng tuyến hoàn toàn sai — depot chưa được xuất phát.<br><br>
+    AddCircuit buộc mọi cạnh được chọn phải tạo thành <strong>1 vòng duy nhất qua depot (node 0)</strong>. Không thể có vòng nhỏ rời depot.
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — N=3, K=2, KTV 1 phục vụ KH 1 &amp; 3</div>
+    arcs của KTV 1 gồm: (1,1,sl[1,1]), (2,2,sl[2,1]), (3,3,sl[3,1]) và 12 cạnh thật.<br><br>
+    Nghiệm solver chọn: x[0,1,1]=1, x[1,3,1]=1, x[3,0,1]=1, self_loop[2,1]=1<br>
+    → Cạnh bật: (0→1), (1→3), (3→0), (2→2 tự vòng)<br>
+    → Chu trình: <span class="ck">0 → 1 → 3 → 0</span> + node 2 tự vòng → hợp lệ ✓
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     6. WORKLOAD
+══════════════════════════════════════════ -->
+<div class="section" id="s-workload">
+  <div class="step-header">
+    <span class="step-badge badge-green">Bước 6</span>
+    <h2 class="step-title">Tính workload y[k] cho mỗi kỹ thuật viên</h2>
+  </div>
+
+  <div class="code-block"><span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="vr">total</span> <span class="op">=</span> []
+    <span class="kw">for</span> <span class="vr">i</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+            <span class="kw">if</span> <span class="vr">i</span> <span class="op">!=</span> <span class="vr">j</span>:
+                <span class="vr">cost</span>    <span class="op">=</span> <span class="vr">matrix</span>[<span class="vr">i</span>][<span class="vr">j</span>]
+                <span class="vr">service</span> <span class="op">=</span> <span class="vr">d</span>[<span class="vr">j</span>] <span class="kw">if</span> <span class="vr">j</span> <span class="op">!=</span> <span class="nm">0</span> <span class="kw">else</span> <span class="nm">0</span>
+                <span class="vr">total</span>.<span class="fn">append</span>(<span class="vr">x</span>[<span class="vr">i</span>, <span class="vr">j</span>, <span class="vr">k</span>] <span class="op">*</span> (<span class="vr">cost</span> <span class="op">+</span> <span class="vr">service</span>))
+    <span class="vr">model</span>.<span class="fn">Add</span>(<span class="vr">y</span>[<span class="vr">k</span>] <span class="op">==</span> <span class="fn">sum</span>(<span class="vr">total</span>))</div>
+
+  <div class="eq-box">y[k] = ∑ x[i,j,k] × ( matrix[i][j] + d[j] ) &nbsp; với mọi i ≠ j, và d[0] = 0</div>
+
+  <p class="sec-label">Phân tích từng dòng</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">for k in range(1, K+1):<br>&nbsp;total = []</div>
+      <div class="col-note">Tạo danh sách <span class="ck">total</span> riêng cho từng KTV k. Danh sách này sẽ chứa các biểu thức đóng góp chi phí — mỗi phần tử là 1 hạng tử trong công thức workload.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">for i in range(N+1):<br>&nbsp;for j in range(N+1): if i!=j:</div>
+      <div class="col-note">Duyệt tất cả cạnh có thể (i,j). Với mỗi cạnh, tính xem nếu KTV k đi cạnh này thì tốn bao nhiêu thời gian. Chỉ tính i ≠ j (cạnh có hướng thực sự).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">cost = matrix[i][j]</div>
+      <div class="col-note">Thời gian <strong>di chuyển</strong> từ điểm i đến điểm j — lấy thẳng từ ma trận đầu vào. Đây là chi phí đường đi, không phụ thuộc vào ai đi.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">service = d[j] if j != 0 else 0</div>
+      <div class="col-note">Thời gian <strong>phục vụ</strong> tại điểm đến j. Nếu j = 0 (KTV đang quay về depot) thì không có phục vụ → service = 0. Nếu j ≥ 1 (KH) thì service = d[j] phút.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">total.append(<br>&nbsp;x[i,j,k] * (cost + service))</div>
+      <div class="col-note"><strong>Kỹ thuật tuyến tính hóa:</strong> nhân biến BoolVar với hằng số.<br>
+      — Nếu x[i,j,k] = <span class="ck-warn">0</span>: KTV k không đi cạnh này → đóng góp 0 vào tổng (không tính).<br>
+      — Nếu x[i,j,k] = <span class="ck-ok">1</span>: KTV k đi cạnh này → đóng góp đúng (cost + service).<br><br>
+      CP-SAT xử lý tích biến×hằng số rất hiệu quả — đây là cách tiêu chuẩn để mã hóa chi phí trong mô hình tuyến tính nguyên.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">model.Add(y[k] == sum(total))</div>
+      <div class="col-note">Ràng buộc liên kết: nói với solver rằng <span class="ck">y[k]</span> phải bằng tổng của tất cả chi phí cạnh được chọn. Solver sẽ tự tính y[k] dựa trên giá trị x mà nó chọn — không cần ta tính tay.</div>
+    </div>
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — KTV 1 đi tuyến 0→1→3→0</div>
+    Cạnh <span class="ck">0→1</span>: x[0,1,1]=1, cost=matrix[0][1]=10, service=d[1]=5 → đóng góp <strong>15</strong><br>
+    Cạnh <span class="ck">1→3</span>: x[1,3,1]=1, cost=matrix[1][3]=18, service=d[3]=6 → đóng góp <strong>24</strong><br>
+    Cạnh <span class="ck">3→0</span>: x[3,0,1]=1, cost=matrix[3][0]=20, service=d[0]=0 → đóng góp <strong>20</strong><br>
+    21 cạnh còn lại của KTV 1: x=0 → đóng góp 0<br><br>
+    → y[1] = 15 + 24 + 20 = <strong>59 phút</strong>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     7. MINIMAX
+══════════════════════════════════════════ -->
+<div class="section" id="s-minimax">
+  <div class="step-header">
+    <span class="step-badge badge-coral">Bước 7</span>
+    <h2 class="step-title">Hàm mục tiêu — Minimize max workload</h2>
+  </div>
+
+  <div class="code-block"><span class="cm"># z phải lớn hơn hoặc bằng workload của MỌI KTV</span>
+<span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+    <span class="vr">model</span>.<span class="fn">Add</span>(<span class="vr">z</span> <span class="op">&gt;=</span> <span class="vr">y</span>[<span class="vr">k</span>])
+
+<span class="cm"># Tối thiểu hóa z → tối thiểu hóa workload lớn nhất</span>
+<span class="vr">model</span>.<span class="fn">Minimize</span>(<span class="vr">z</span>)</div>
+
+  <p class="sec-label">Phân tích từng dòng</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">for k in range(1, K+1):<br>&nbsp;model.Add(z &gt;= y[k])</div>
+      <div class="col-note">Tạo K ràng buộc: z ≥ y[1], z ≥ y[2], ..., z ≥ y[K]. Tức là z phải lớn hơn hoặc bằng workload của <strong>tất cả</strong> KTV → z ≥ max(y[1], ..., y[K]).<br><br>
+      CP-SAT không có hàm <span class="ck">model.AddMaxEquality()</span> trực tiếp cho mục tiêu minimize, nên ta dùng mẹo biến phụ z này — đây là kỹ thuật chuẩn trong Integer Programming.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">model.Minimize(z)</div>
+      <div class="col-note">Đặt hàm mục tiêu: solver sẽ tìm phân công sao cho z nhỏ nhất. Vì z ≥ max(y[k]), giảm z buộc solver phải kéo giảm workload của KTV bận nhất.<br><br>
+      <strong>Cơ chế:</strong> solver thử các giá trị z từ nhỏ đến lớn, kiểm tra xem z đó có khả thi không (có phân công nào thỏa mọi ràng buộc không). Giá trị z nhỏ nhất khả thi là kết quả tối ưu.</div>
+    </div>
+  </div>
+
+  <div class="why-block">
+    <div class="block-label lbl-why">Tại sao không dùng Minimize(sum(y)) thay vì Minimize(z)?</div>
+    <span class="ck">Minimize(sum(y))</span> = tối thiểu <strong>tổng</strong> thời gian làm việc. Có thể dẫn đến: KTV 1 làm 80 phút, KTV 2 làm 5 phút → tổng = 85, nhưng phân công <strong>không công bằng</strong>.<br><br>
+    <span class="ck">Minimize(z)</span> với z = max(y[k]) = tối thiểu thời gian của <strong>người bận nhất</strong>. Solver phải tìm cách san đều tải — đây đúng là mục tiêu của Balanced Staff Routing.
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ so sánh — N=3, K=2</div>
+    <strong>Phương án A:</strong> y[1]=59, y[2]=38 → z = max(59,38) = 59<br>
+    <strong>Phương án B:</strong> y[1]=46, y[2]=45 → z = max(46,45) = 46<br><br>
+    Solver chọn phương án B vì z = 46 &lt; 59. Phân công cân bằng hơn = tối ưu hơn theo tiêu chí bài toán.
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     8. SOLVE
+══════════════════════════════════════════ -->
+<div class="section" id="s-solve">
+  <div class="step-header">
+    <span class="step-badge badge-gray">Bước 8</span>
+    <h2 class="step-title">Giải mô hình và truy vết tuyến đường</h2>
+  </div>
+
+  <div class="code-block"><span class="vr">solver</span> <span class="op">=</span> <span class="vr">cp_model</span>.<span class="fn">CpSolver</span>()
+<span class="vr">solver</span>.<span class="vr">parameters</span>.<span class="vr">max_time_in_seconds</span> <span class="op">=</span> <span class="nm">100.0</span>
+<span class="vr">status</span> <span class="op">=</span> <span class="vr">solver</span>.<span class="fn">Solve</span>(<span class="vr">model</span>)</div>
+
+  <p class="sec-label">Phân tích — khởi động solver</p>
+  <div class="line-table" style="margin-bottom:20px;">
+    <div class="line-row">
+      <div class="col-code">solver = cp_model.CpSolver()</div>
+      <div class="col-note">Tạo đối tượng solver — engine thực sự giải bài toán. Solver và model tách rời nhau: model chứa định nghĩa bài toán, solver là người đi tìm nghiệm.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">solver.parameters<br>&nbsp;.max_time_in_seconds = 100.0</div>
+      <div class="col-note">Giới hạn thời gian 100 giây. Nếu hết giờ mà solver chưa chứng minh tối ưu, nó trả về lời giải tốt nhất tìm được đến lúc đó (status = <span class="ck-warn">FEASIBLE</span> thay vì <span class="ck-ok">OPTIMAL</span>).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">status = solver.Solve(model)</div>
+      <div class="col-note">Gọi solver chạy. Bên trong, CP-SAT dùng Branch &amp; Bound + Constraint Propagation để tìm nghiệm. Trả về status: <span class="ck-ok">OPTIMAL</span>, <span class="ck-warn">FEASIBLE</span>, <span class="ck-warn">INFEASIBLE</span>, hoặc <span class="ck-warn">UNKNOWN</span>.</div>
+    </div>
+  </div>
+
+  <div class="code-block"><span class="kw">if</span> <span class="vr">status</span> <span class="op">==</span> <span class="vr">cp_model</span>.<span class="vr">OPTIMAL</span> <span class="kw">or</span> <span class="vr">status</span> <span class="op">==</span> <span class="vr">cp_model</span>.<span class="vr">FEASIBLE</span>:
+    <span class="fn">print</span>(<span class="vr">K</span>)
+    <span class="kw">for</span> <span class="vr">k</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, <span class="vr">K</span> <span class="op">+</span> <span class="nm">1</span>):
+        <span class="vr">current</span> <span class="op">=</span> <span class="nm">0</span>
+        <span class="vr">route</span>   <span class="op">=</span> [<span class="nm">0</span>]
+        <span class="vr">visited</span> <span class="op">=</span> <span class="fn">set</span>()
+        <span class="kw">while</span> <span class="vr">True</span>:
+            <span class="vr">found</span> <span class="op">=</span> <span class="vr">False</span>
+            <span class="kw">for</span> <span class="vr">j</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="vr">N</span> <span class="op">+</span> <span class="nm">1</span>):
+                <span class="kw">if</span> <span class="vr">current</span> <span class="op">!=</span> <span class="vr">j</span> <span class="kw">and</span> <span class="vr">solver</span>.<span class="fn">Value</span>(<span class="vr">x</span>[<span class="vr">current</span>, <span class="vr">j</span>, <span class="vr">k</span>]) <span class="op">==</span> <span class="nm">1</span>:
+                    <span class="vr">route</span>.<span class="fn">append</span>(<span class="vr">j</span>)
+                    <span class="vr">visited</span>.<span class="fn">add</span>(<span class="vr">j</span>)
+                    <span class="vr">current</span> <span class="op">=</span> <span class="vr">j</span>
+                    <span class="vr">found</span>   <span class="op">=</span> <span class="vr">True</span>
+                    <span class="kw">break</span>
+            <span class="kw">if</span> <span class="op">not</span> <span class="vr">found</span> <span class="kw">or</span> <span class="vr">current</span> <span class="op">==</span> <span class="nm">0</span>:
+                <span class="kw">break</span>
+        <span class="kw">if</span> <span class="vr">route</span>[<span class="op">-</span><span class="nm">1</span>] <span class="op">!=</span> <span class="nm">0</span>:
+            <span class="vr">route</span>.<span class="fn">append</span>(<span class="nm">0</span>)
+        <span class="fn">print</span>(<span class="fn">len</span>(<span class="vr">route</span>))
+        <span class="fn">print</span>(<span class="st">" "</span>.<span class="fn">join</span>(<span class="fn">map</span>(<span class="vr">str</span>, <span class="vr">route</span>)))
+<span class="kw">else</span>:
+    <span class="fn">print</span>(<span class="st">"NO_SOLUTION"</span>)</div>
+
+  <p class="sec-label">Phân tích — truy vết và in tuyến đường</p>
+  <div class="line-table">
+    <div class="line-row">
+      <div class="col-code">if status == OPTIMAL or FEASIBLE:</div>
+      <div class="col-note">Chỉ in kết quả khi có lời giải. Cả OPTIMAL lẫn FEASIBLE đều có nghiệm hợp lệ — sự khác biệt chỉ là OPTIMAL được chứng minh tối ưu, FEASIBLE chưa được chứng minh (có thể còn nghiệm tốt hơn).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">print(K)</div>
+      <div class="col-note">In số KTV — dòng đầu tiên của output theo định dạng yêu cầu bài.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">current = 0<br>route = [0]</div>
+      <div class="col-note">Bắt đầu truy vết từ <strong>depot (node 0)</strong>. <span class="ck">current</span> = node đang đứng, <span class="ck">route</span> = danh sách node đã đi qua theo thứ tự. Depot luôn là điểm xuất phát nên thêm 0 vào route ngay.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">while True:<br>&nbsp;found = False<br>&nbsp;for j in range(N+1):</div>
+      <div class="col-note">Vòng lặp truy vết: từ vị trí hiện tại, tìm xem KTV k đi đến node nào tiếp theo. Thử tất cả j từ 0 đến N — node nào có x[current,j,k]=1 thì đó là bước đi tiếp.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">if current != j and<br>&nbsp;solver.Value(x[current,j,k]) == 1:</div>
+      <div class="col-note"><span class="ck">solver.Value(...)</span> tra cứu giá trị của biến trong lời giải tìm được. Bằng <span class="ck-ok">1</span> nghĩa là solver đã chọn cạnh current→j cho KTV k. Điều kiện <span class="ck">current != j</span> tránh self_loop.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">route.append(j)<br>current = j<br>found = True<br>break</div>
+      <div class="col-note">Thêm j vào tuyến, cập nhật vị trí hiện tại, đánh dấu đã tìm thấy bước đi, rồi <span class="ck">break</span> — dừng vòng for j ngay lập tức vì đã tìm được cạnh tiếp theo (mỗi node có đúng 1 cạnh ra theo AddCircuit).</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">if not found or current == 0:<br>&nbsp;break</div>
+      <div class="col-note">Điều kiện thoát khỏi while: <br>
+      — <span class="ck">not found</span>: không tìm được cạnh tiếp theo (tuyến bị gãy — không nên xảy ra nếu model đúng).<br>
+      — <span class="ck">current == 0</span>: KTV đã quay về depot → tuyến hoàn chỉnh, dừng vòng lặp.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">if route[-1] != 0:<br>&nbsp;route.append(0)</div>
+      <div class="col-note">Kiểm tra an toàn: nếu phần tử cuối của route chưa phải depot (0), thêm vào. Đảm bảo mọi tuyến đều có dạng <span class="ck">0 ... 0</span> — xuất phát và kết thúc tại depot.</div>
+    </div>
+    <div class="line-row">
+      <div class="col-code">print(len(route))<br>print(" ".join(map(str, route)))</div>
+      <div class="col-note">In 2 dòng cho mỗi KTV: số điểm trong tuyến (bao gồm cả depot đầu và cuối), rồi danh sách node cách nhau bởi dấu cách. Tuyến 0→1→3→0 có <strong>len = 4</strong>.</div>
+    </div>
+  </div>
+
+  <div class="example-block">
+    <div class="block-label lbl-ex">Ví dụ số — N=3, K=2, truy vết KTV 1 tuyến 0→1→3→0</div>
+    Lần 1: current=0, tìm j: solver.Value(x[0,1,1])=1 → route=[0,1], current=1<br>
+    Lần 2: current=1, tìm j: solver.Value(x[1,3,1])=1 → route=[0,1,3], current=3<br>
+    Lần 3: current=3, tìm j: solver.Value(x[3,0,1])=1 → route=[0,1,3,0], current=0<br>
+    Lần 4: current==0 → break vòng while<br><br>
+    route[-1] = 0 → không cần append thêm.<br>
+    In: <span class="ck">4</span> rồi <span class="ck">0 1 3 0</span><br><br>
+    <strong>Output hoàn chỉnh:</strong>
+    <div class="output-box">2<br>4<br>0 1 3 0<br>3<br>0 2 0</div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+function show(id, clickedBtn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.mob-btn').forEach(b => b.classList.remove('active'));
+  if (clickedBtn) {
+    const label = clickedBtn.textContent.trim();
+    document.querySelectorAll('.nav-item, .mob-btn').forEach(b => {
+      if (b.textContent.trim() === label) b.classList.add('active');
+    });
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
