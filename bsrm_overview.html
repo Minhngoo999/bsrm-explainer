@@ -2037,3 +2037,431 @@ function drawValid(cid) {
   ]);
 }
 </script>
+
+<!-- ═══════════════════════════════════════════════════════
+     TAB 7: SELF_LOOP — style giống hệt tab biến x
+═══════════════════════════════════════════════════════ -->
+<style>
+/* reuse xvar styles, thêm sl-specific */
+.sl-analogy {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 0;
+  align-items: stretch; margin-bottom: 20px;
+  border: .5px solid var(--border2); border-radius: var(--r-lg); overflow: hidden;
+}
+.sl-side { padding: 18px 20px; font-size: 13px; line-height: 1.75; }
+.sl-side.bad { background: #fdeaea; border-right: .5px solid var(--border2); }
+.sl-side.ok  { background: var(--green-bg); border-left: .5px solid var(--border2); }
+@media (prefers-color-scheme: dark) {
+  .sl-side.bad { background: #3b1010; }
+  .sl-side.ok  { background: var(--ok-bg, #04342c); }
+}
+.sl-mid { display: flex; align-items: center; justify-content: center;
+  padding: 0 16px; font-size: 22px; color: var(--text3);
+  background: var(--bg2); border-left: .5px solid var(--border2); border-right: .5px solid var(--border2);
+}
+.sl-head { font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 8px; }
+.sl-head.bad { color: #c0392b; } .sl-head.ok { color: var(--green-text); }
+
+/* sl grid items — same style as xvar but different color scheme */
+.slvar {
+  font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px;
+  padding: 5px 9px; border-radius: 6px; border: .5px solid var(--border2);
+  background: var(--bg2); color: var(--text2); transition: all .25s;
+  white-space: nowrap; min-width: 100px; text-align: center;
+}
+.slvar .slval { display: inline-block; margin-left: 4px; font-weight: 700; font-size: 12px; }
+.slvar.sl-trying { border-color: var(--amber-bd); background: var(--amber-bg); color: var(--amber-text); transform: scale(1.06); box-shadow: 0 0 0 2px color-mix(in srgb,var(--amber) 30%,transparent); }
+.slvar.sl-is1    { border-color: var(--amber-bd); background: var(--amber-bg); color: var(--amber-text); }
+.slvar.sl-is0    { border-color: var(--green-bd); background: var(--green-bg); color: var(--green-text); }
+.slvar.sl-infer1 { border-color: var(--purple-bd); background: var(--purple-bg); color: var(--purple-text); }
+.slvar.sl-infer0 { border-color: var(--green-bd); background: var(--green-bg); color: var(--green-text); opacity:.7; }
+
+/* circuit vis canvas */
+.circuit-vis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+.cv-box { background: var(--surface); border: .5px solid var(--border2); border-radius: var(--r-lg); padding: 12px; text-align: center; }
+.cv-box canvas { display: block; margin: 0 auto 6px; }
+.cv-title { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+.cv-body  { font-size: 11.5px; color: var(--text2); line-height: 1.55; }
+</style>
+
+<!-- PAGE -->
+<div class="page" id="page-selfloop">
+<div class="xpage-wrap">
+
+  <div style="padding-top:20px;margin-bottom:20px">
+    <div class="p-badge" style="background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber-bd)">Biến phụ trợ</div>
+    <h1 class="p-h1" style="margin-top:10px">self_loop[i, k] — "Cạnh ảo" cho AddCircuit</h1>
+    <p class="p-sub">Tương tự biến x, self_loop cũng là ô trống solver tự điền. Nhưng thay vì hỏi "KTV k có đi cạnh i→j không?", nó hỏi: <strong>"KTV k có BỎ QUA khách hàng i không?"</strong> Nếu bỏ qua → = 1, nếu ghé → = 0.</p>
+  </div>
+
+  <!-- Analogy card -->
+  <div class="sec-lbl">Vấn đề self_loop giải quyết</div>
+  <div class="sl-analogy">
+    <div class="sl-side bad">
+      <div class="sl-head bad">❌ Không có self_loop</div>
+      KTV 1 phục vụ KH1 và KH3.<br>
+      Trong đồ thị KTV 1, <strong>KH2 hoàn toàn trống</strong> — không có cạnh vào, không có cạnh ra.<br><br>
+      AddCircuit yêu cầu: <em>mọi node phải có đúng 1 cạnh vào và 1 cạnh ra.</em><br><br>
+      KH2 vi phạm → <strong>AddCircuit báo lỗi</strong>, dù bài toán hoàn toàn có nghiệm!
+    </div>
+    <div class="sl-mid">→</div>
+    <div class="sl-side ok">
+      <div class="sl-head ok">✅ Có self_loop[2,1] = 1</div>
+      Thêm "cạnh ảo" KH2 → KH2 vào arcs của KTV 1.<br><br>
+      Nói với AddCircuit: <em>"Node KH2 đã được xử lý — KTV 1 chỉ bỏ qua nó thôi."</em><br><br>
+      KH2 có 1 cạnh vào (tự vòng) → thỏa yêu cầu AddCircuit → <strong>solver chạy đúng.</strong>
+    </div>
+  </div>
+
+  <!-- Visual: arcs list -->
+  <div class="circuit-vis">
+    <div class="cv-box">
+      <div class="bad-badge">❌ arcs KTV1 thiếu KH2</div>
+      <canvas id="sl-c-bad" width="200" height="160"></canvas>
+      <div class="cv-title">Node KH2 bị "mồ côi"</div>
+      <div class="cv-body">arcs = [(0,1,x[0,1,1]), (1,3,x[1,3,1]), (3,0,x[3,0,1])]<br>KH2 không xuất hiện → AddCircuit lỗi</div>
+    </div>
+    <div class="cv-box">
+      <div class="ok-badge">✅ arcs KTV1 đủ với self_loop</div>
+      <canvas id="sl-c-ok" width="200" height="160"></canvas>
+      <div class="cv-title">Mọi node đều có đại diện</div>
+      <div class="cv-body">arcs = [..., <strong>(2,2,self_loop[2,1])</strong>]<br>KH2 tự vòng = được xử lý → hợp lệ ✓</div>
+    </div>
+  </div>
+
+  <!-- SL VAR GRID -->
+  <div class="xgrid-section" style="margin-top:20px">
+    <div class="xgrid-label">6 biến self_loop — K×N = 2×3 = 6 biến (N=3, K=2)</div>
+    <div style="margin-bottom:8px;font-size:12px;color:var(--text3)">
+      <span style="display:inline-block;width:10px;height:10px;background:var(--bg2);border:.5px solid var(--border2);border-radius:3px;margin-right:4px"></span>chưa biết &nbsp;
+      <span style="display:inline-block;width:10px;height:10px;background:var(--amber-bg);border:.5px solid var(--amber-bd);border-radius:3px;margin-right:4px"></span>= 1 (KTV bỏ qua KH này) &nbsp;
+      <span style="display:inline-block;width:10px;height:10px;background:var(--green-bg);border:.5px solid var(--green-bd);border-radius:3px;margin-right:4px"></span>= 0 (KTV có ghé KH này) &nbsp;
+      <span style="display:inline-block;width:10px;height:10px;background:var(--purple-bg);border:.5px solid var(--purple-bd);border-radius:3px;margin-right:4px"></span>= 1 (suy ra tự động)
+    </div>
+    <div style="margin-bottom:6px;font-size:11.5px;color:var(--text3);font-weight:600">KTV 1:</div>
+    <div class="xgrid" id="slgrid-k1"></div>
+    <div style="margin:10px 0 6px;font-size:11.5px;color:var(--text3);font-weight:600">KTV 2:</div>
+    <div class="xgrid" id="slgrid-k2"></div>
+  </div>
+
+  <!-- Constraint checker -->
+  <div style="margin-bottom:20px">
+    <div class="xgrid-label">Ràng buộc liên quan đang kiểm tra</div>
+    <div class="constraint-checker" id="sl-constraint-checker"></div>
+  </div>
+
+  <!-- Bottom layout -->
+  <div class="xanim-layout">
+    <div>
+      <div class="narrative-box">
+        <div class="narr-phase" id="sl-narr-phase">Giai đoạn 1</div>
+        <div class="narr-title" id="sl-narr-title">Bắt đầu</div>
+        <div class="narr-body"  id="sl-narr-body">...</div>
+      </div>
+      <div class="xanim-controls">
+        <button class="ctrl-btn" id="slBtnPrev" onclick="slStep(-1)" disabled>← Trước</button>
+        <div class="xprog"><div class="xprog-fill" id="slProg" style="width:0%"></div></div>
+        <button class="ctrl-btn primary" id="slBtnNext" onclick="slStep(1)">Tiếp →</button>
+        <button class="ctrl-btn" onclick="slReset()" style="padding:8px 12px">↺</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:8px" id="slStepNum">Bước 1 / 10</div>
+    </div>
+
+    <!-- right: relationship tracker -->
+    <div class="z-tracker">
+      <div class="zt-label">Mối quan hệ x ↔ self_loop</div>
+      <div style="display:flex;flex-direction:column;gap:8px" id="sl-rel-box">
+        <div style="padding:10px 12px;border-radius:8px;border:.5px solid var(--border);background:var(--bg2);font-size:12.5px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Quy tắc bù nhau</div>
+          Với mỗi cặp (KH j, KTV k):<br>
+          <span style="font-family:monospace;font-size:11.5px">∑x[i,j,k] + self_loop[j,k] = 1</span><br><br>
+          → Nếu KTV k <strong>đến j</strong>: x=1, sl=0<br>
+          → Nếu KTV k <strong>bỏ qua j</strong>: x=0, sl=1<br>
+          → Không thể cả hai = 1 hoặc cả hai = 0
+        </div>
+        <div style="padding:10px 12px;border-radius:8px;border:.5px solid var(--border);background:var(--bg2);font-size:12.5px" id="sl-current-state">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Trạng thái hiện tại</div>
+          <div id="sl-state-rows">Chưa có thông tin...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- #page-selfloop -->
+
+<script>
+/* inject tab 7 */
+(function(){
+  const tabs = document.querySelector('.nav-tabs');
+  if (!tabs || document.getElementById('tab7btn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'tab7btn'; btn.className = 'nav-tab';
+  btn.textContent = '🔁 self_loop';
+  btn.onclick = function(){ switchPage('selfloop', this); initSLAnim(); };
+  tabs.appendChild(btn);
+})();
+
+/* ── STEPS DATA ── */
+const SL_STEPS = [
+  {
+    phase: 'Giai đoạn 1 — Vấn đề',
+    title: 'AddCircuit cần mọi node có đủ cạnh vào/ra',
+    body: 'Trước khi hiểu self_loop, cần hiểu yêu cầu của <span class="ck">AddCircuit</span>: trong đồ thị của mỗi KTV, <strong>mọi node (depot + tất cả KH) phải có đúng 1 cạnh vào và 1 cạnh ra</strong>. Nếu 1 node thiếu cạnh → AddCircuit báo lỗi ngay, kể cả khi bài toán có nghiệm hợp lệ.',
+    sl_k1: {1:'?',2:'?',3:'?'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'AddCircuit: mọi node phải có đúng 1 cạnh vào/ra', status:'check'},
+      {text:'∑x[i,j,k] + self_loop[j,k] = 1 (chưa áp)', status:'wait'},
+      {text:'self_loop[j,k] = 1 − ∑x[i,j,k]', status:'wait'},
+    ],
+    stateRows: 'Tất cả self_loop chưa xác định...'
+  },
+  {
+    phase: 'Giai đoạn 1 — Vấn đề',
+    title: 'Nếu KTV 1 chỉ ghé KH1 và KH3 — KH2 bị bỏ trống',
+    body: 'Giả sử solver đang thử: KTV 1 đi tuyến 0→1→3→0. Trong đồ thị KTV 1: node 0,1,3 đều có cạnh. Nhưng <strong>node KH2 (node 2) hoàn toàn không có cạnh nào</strong> → AddCircuit không thể tạo chu trình hợp lệ → INFEASIBLE dù tuyến thực tế đúng!',
+    sl_k1: {1:'?',2:'?',3:'?'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'KTV1: node 0,1,3 có cạnh ✓', status:'ok'},
+      {text:'KTV1: node 2 — không có cạnh nào ✗', status:'fail'},
+      {text:'AddCircuit KTV1 → LỖI vì node 2 bị bỏ trống', status:'fail'},
+    ],
+    stateRows: '<span style="color:#c0392b">KH2 trong đồ thị KTV1: không có cạnh nào → AddCircuit lỗi!</span>'
+  },
+  {
+    phase: 'Giai đoạn 2 — Giải pháp',
+    title: 'Tạo self_loop[2,1] = "cạnh ảo" KH2→KH2 cho KTV1',
+    body: 'Giải pháp: thêm một "cạnh ảo" từ KH2 về chính nó (self_loop) vào arcs của KTV 1. Khi solver điền <span class="ck-a">self_loop[2,1] = 1</span>, AddCircuit hiểu: "node KH2 đã được xử lý — KTV 1 đơn giản bỏ qua nó". Node KH2 giờ có đủ 1 cạnh vào/ra (cạnh ảo) → hợp lệ.',
+    sl_k1: {1:'?',2:'1',3:'?'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'self_loop[2,1] = 1 → node 2 có cạnh ảo 2→2 ✓', status:'ok'},
+      {text:'AddCircuit KTV1: node 0,1,2,3 đều có đại diện ✓', status:'ok'},
+      {text:'∑x[i,2,1] + self_loop[2,1] = 0+1 = 1 ✓', status:'ok'},
+    ],
+    stateRows: '<span class="ck-a">self_loop[2,1] = 1</span> → KTV 1 bỏ qua KH2<br>Node KH2 trong đồ thị KTV1: cạnh ảo 2→2 ✓'
+  },
+  {
+    phase: 'Giai đoạn 2 — Ràng buộc',
+    title: 'Ràng buộc 2 liên kết x và self_loop: tổng = 1',
+    body: 'Ràng buộc 2 đảm bảo x và self_loop <strong>bù nhau chính xác</strong>:<br><br><span class="ck">∑x[i,j,k] + self_loop[j,k] = 1</span><br><br>Nếu KTV k đến j (∑x = 1) → self_loop bắt buộc = 0.<br>Nếu KTV k bỏ qua j (∑x = 0) → self_loop bắt buộc = 1.<br><br>Không thể cả hai = 1 (vừa đến vừa bỏ qua) hay cả hai = 0 (không có gì).',
+    sl_k1: {1:'?',2:'1',3:'?'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'RB2 (j=2,k=1): ∑x[i,2,1] + self_loop[2,1] = 0+1 = 1 ✓', status:'ok'},
+      {text:'RB2 tổng quát: buộc sl=1−∑x cho mọi cặp (j,k)', status:'ok'},
+      {text:'Nếu vi phạm: sl=1 mà vẫn có x=1 → tổng=2 ≠ 1 ✗', status:'wait'},
+    ],
+    stateRows: 'Quy tắc: <span class="ck-g">self_loop[j,k] = 1 − ∑x[i,j,k]</span><br>Hai biến luôn bù nhau, tổng = 1'
+  },
+  {
+    phase: 'Giai đoạn 3 — Solver điền',
+    title: 'Solver gán x[0,1,1]=1 → self_loop[1,1] tự động = 0',
+    body: 'Solver quyết định KTV 1 đi đến KH1: <span class="ck-g">x[0,1,1]=1</span>. Ngay lập tức ràng buộc 2 propagate: ∑x[i,1,1] = 1 → self_loop[1,1] bắt buộc = 0. <strong>Solver không cần thử</strong> — nó tự suy ra self_loop[1,1]=0 vì KTV 1 có ghé KH1.',
+    sl_k1: {1:'0',2:'?',3:'?'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'x[0,1,1]=1 → KTV1 ghé KH1 ✓', status:'ok'},
+      {text:'RB2 (j=1,k=1): 1 + self_loop[1,1] = 1 → sl=0 (suy ra)', status:'ok'},
+      {text:'self_loop[1,1]=0 → KTV1 KHÔNG bỏ qua KH1 ✓', status:'ok'},
+    ],
+    stateRows: '<span class="ck-g">self_loop[1,1] = 0</span> → KTV 1 có ghé KH1<br><span style="color:var(--text3);font-size:11px">Suy ra tự động từ x[0,1,1]=1</span>'
+  },
+  {
+    phase: 'Giai đoạn 3 — Solver điền',
+    title: 'Solver gán x[1,3,1]=1 → self_loop[3,1] tự động = 0',
+    body: 'Tiếp tục: solver quyết định KTV 1 đi từ KH1→KH3: <span class="ck-g">x[1,3,1]=1</span>. Tương tự: ∑x[i,3,1]=1 → <span class="ck-g">self_loop[3,1]=0</span> tự động. KTV 1 có ghé KH3 → không bỏ qua → self_loop = 0.',
+    sl_k1: {1:'0',2:'?',3:'0'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'x[1,3,1]=1 → KTV1 ghé KH3 ✓', status:'ok'},
+      {text:'RB2 (j=3,k=1): 1 + self_loop[3,1] = 1 → sl=0 (suy ra)', status:'ok'},
+      {text:'Còn lại: KH2 với KTV1 — chưa biết', status:'check'},
+    ],
+    stateRows: '<span class="ck-g">self_loop[1,1] = 0</span> → KTV1 ghé KH1<br><span class="ck-g">self_loop[3,1] = 0</span> → KTV1 ghé KH3<br><span class="ck-a">self_loop[2,1] = ?</span> → chưa biết'
+  },
+  {
+    phase: 'Giai đoạn 3 — Suy ra tự động',
+    title: 'KH2 chưa ai ghé → self_loop[2,1] = 1 bắt buộc',
+    body: 'Ràng buộc 1 (RB1) đã đảm bảo KH2 được phục vụ bởi KTV 2. Vậy với KTV 1: ∑x[i,2,1] = 0 (KTV 1 không đến KH2). RB2 suy ra: 0 + self_loop[2,1] = 1 → <span class="ck-a">self_loop[2,1] = 1</span>. KTV 1 bỏ qua KH2 — cạnh ảo được bật lên để AddCircuit hợp lệ.',
+    sl_k1: {1:'0',2:'1-infer',3:'0'}, sl_k2: {1:'?',2:'?',3:'?'},
+    constraints:[
+      {text:'RB1: KH2 do KTV2 phục vụ → x[*,2,1]=0', status:'ok'},
+      {text:'RB2 (j=2,k=1): 0 + self_loop[2,1] = 1 → sl=1 (bắt buộc)', status:'ok'},
+      {text:'AddCircuit KTV1: node 2 có cạnh ảo 2→2 ✓', status:'ok'},
+    ],
+    stateRows: '<span class="ck-g">self_loop[1,1] = 0</span> → KTV1 ghé KH1<br><span class="ck-p" style="color:var(--purple-text)">self_loop[2,1] = 1</span> → KTV1 bỏ qua KH2 (suy ra!)<br><span class="ck-g">self_loop[3,1] = 0</span> → KTV1 ghé KH3'
+  },
+  {
+    phase: 'Giai đoạn 4 — KTV 2',
+    title: 'KTV 2 phục vụ KH2 → self_loop[2,2] = 0, còn sl[1,2] và sl[3,2] = 1',
+    body: 'KTV 2 đi tuyến 0→2→0. Solver gán x[0,2,2]=1 → <span class="ck-g">self_loop[2,2]=0</span>. KTV 2 không ghé KH1 và KH3 (đã do KTV 1 phục vụ) → <span class="ck-a">self_loop[1,2]=1</span> và <span class="ck-a">self_loop[3,2]=1</span> được suy ra tự động.',
+    sl_k1: {1:'0',2:'1-infer',3:'0'}, sl_k2: {1:'1-infer',2:'0',3:'1-infer'},
+    constraints:[
+      {text:'x[0,2,2]=1 → KTV2 ghé KH2 → sl[2,2]=0 ✓', status:'ok'},
+      {text:'KH1,KH3 đã do KTV1 → sl[1,2]=sl[3,2]=1 (suy ra) ✓', status:'ok'},
+      {text:'AddCircuit KTV2: 0→2→0, node 1,3 tự vòng ✓', status:'ok'},
+    ],
+    stateRows: '<strong>KTV 2:</strong><br><span class="ck-a">self_loop[1,2] = 1</span> → KTV2 bỏ qua KH1<br><span class="ck-g">self_loop[2,2] = 0</span> → KTV2 ghé KH2<br><span class="ck-a">self_loop[3,2] = 1</span> → KTV2 bỏ qua KH3'
+  },
+  {
+    phase: 'Giai đoạn 5 — Tổng kết',
+    title: 'Tất cả 6 self_loop đã được điền — AddCircuit hoạt động',
+    body: 'Toàn bộ 6 biến self_loop đã xác định. Mỗi giá trị đều được <strong>suy ra tự động</strong> từ các biến x qua ràng buộc 2 — solver không cần "thử" self_loop riêng. Self_loop chỉ là gương phản chiếu của x: x=1 thì sl=0, x=0 thì sl=1. Nhờ đó AddCircuit của cả 2 KTV đều hợp lệ.',
+    sl_k1: {1:'0',2:'1-infer',3:'0'}, sl_k2: {1:'1-infer',2:'0',3:'1-infer'},
+    constraints:[
+      {text:'AddCircuit KTV1: 0→1→3→0, node 2 tự vòng ✓', status:'ok'},
+      {text:'AddCircuit KTV2: 0→2→0, node 1,3 tự vòng ✓', status:'ok'},
+      {text:'Tất cả 6 self_loop suy ra tự động từ x ✓', status:'ok'},
+    ],
+    stateRows: '<strong>KTV 1:</strong> sl[1,1]=0, <span style="color:var(--purple-text)">sl[2,1]=1</span>, sl[3,1]=0<br><strong>KTV 2:</strong> <span style="color:var(--purple-text)">sl[1,2]=1</span>, sl[2,2]=0, <span style="color:var(--purple-text)">sl[3,2]=1</span><br><br>Màu cam = bỏ qua · Màu xanh = có ghé · Tím = suy ra'
+  },
+  {
+    phase: 'Giai đoạn 6 — Đọc kết quả',
+    title: 'self_loop không xuất hiện trong output — chỉ dùng nội bộ',
+    body: 'Khi truy vết route, code chỉ đọc <span class="ck">solver.Value(x[current,j,k])</span> để tìm cạnh tiếp theo — <strong>không đọc self_loop</strong>. Self_loop hoàn toàn là biến nội bộ phục vụ AddCircuit. Người dùng nhìn kết quả không thấy nó đâu cả — nhưng nếu thiếu nó, AddCircuit sẽ không chạy được.',
+    sl_k1: {1:'0',2:'1-infer',3:'0'}, sl_k2: {1:'1-infer',2:'0',3:'1-infer'},
+    constraints:[
+      {text:'solver.Value(self_loop[*]) — không bao giờ được đọc', status:'ok'},
+      {text:'Chỉ x[i,j,k] được đọc khi truy vết route', status:'ok'},
+      {text:'self_loop = "cầu nối" giữa x và AddCircuit, không hơn', status:'ok'},
+    ],
+    stateRows: '<strong>Vai trò self_loop tóm gọn:</strong><br>• Tồn tại vì AddCircuit cần nó<br>• Giá trị luôn = 1 − ∑x (tự suy ra)<br>• Không bao giờ xuất hiện trong output<br>• Bỏ nó đi → AddCircuit lỗi ngay'
+  }
+];
+
+const SL_NODES = [1,2,3]; // KH indices
+let slCurrentStep = 0;
+let slInitDone = false;
+
+function initSLAnim() {
+  if (slInitDone) return;
+  slInitDone = true;
+  // Build grids
+  ['k1','k2'].forEach((k,ki) => {
+    const g = document.getElementById(`slgrid-${k}`);
+    SL_NODES.forEach(i => {
+      const el = document.createElement('div');
+      el.className = 'slvar';
+      el.id = `slv-${k}-${i}`;
+      el.innerHTML = `sl[${i},${ki+1}]<span class="slval" id="slvv-${k}-${i}">?</span>`;
+      g.appendChild(el);
+    });
+  });
+  // Draw canvases
+  drawSLCanvas('sl-c-bad', false);
+  drawSLCanvas('sl-c-ok',  true);
+  renderSLStep(0);
+}
+
+function renderSLStep(si) {
+  const s = SL_STEPS[si];
+  const total = SL_STEPS.length;
+
+  // update grids
+  ['k1','k2'].forEach(k => {
+    const map = k==='k1' ? s.sl_k1 : s.sl_k2;
+    SL_NODES.forEach(i => {
+      const el = document.getElementById(`slv-${k}-${i}`);
+      const vl = document.getElementById(`slvv-${k}-${i}`);
+      if (!el) return;
+      el.className = 'slvar';
+      const v = map[i];
+      if      (v==='1')       { el.classList.add('sl-is1');    vl.textContent='=1'; }
+      else if (v==='0')       { el.classList.add('sl-is0');    vl.textContent='=0'; }
+      else if (v==='1-infer') { el.classList.add('sl-infer1'); vl.textContent='=1'; }
+      else if (v==='0-infer') { el.classList.add('sl-infer0'); vl.textContent='=0'; }
+      else                    { vl.textContent='?'; }
+    });
+  });
+
+  // constraints
+  const cc = document.getElementById('sl-constraint-checker');
+  cc.innerHTML = '';
+  (s.constraints||[]).forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'cc-row'+(c.status==='ok'?' ok':c.status==='fail'?' fail':c.status==='check'?' active':'');
+    const icon = c.status==='ok'?'✅':c.status==='fail'?'❌':c.status==='check'?'🔍':'⏳';
+    const stxt = c.status==='ok'?'Thỏa ✓':c.status==='fail'?'Vi phạm ✗':c.status==='check'?'Đang kiểm tra...':'Chờ';
+    const scls = c.status==='ok'?'s-ok':c.status==='fail'?'s-fail':c.status==='check'?'s-check':'s-wait';
+    row.innerHTML = `<div class="cc-icon">${icon}</div><div class="cc-text cc-formula">${c.text}</div><div class="cc-status ${scls}">${stxt}</div>`;
+    cc.appendChild(row);
+  });
+
+  // narrative
+  document.getElementById('sl-narr-phase').textContent = s.phase;
+  document.getElementById('sl-narr-title').textContent = s.title;
+  document.getElementById('sl-narr-body').innerHTML = s.body;
+  document.getElementById('sl-state-rows').innerHTML = s.stateRows;
+
+  // progress
+  document.getElementById('slProg').style.width = ((si+1)/total*100)+'%';
+  document.getElementById('slStepNum').textContent = `Bước ${si+1} / ${total}`;
+  document.getElementById('slBtnPrev').disabled = si===0;
+  document.getElementById('slBtnNext').disabled = si===total-1;
+  document.getElementById('slBtnNext').textContent = si===total-1?'Hoàn thành ✓':'Tiếp →';
+}
+
+function slStep(dir) {
+  slCurrentStep = Math.max(0, Math.min(SL_STEPS.length-1, slCurrentStep+dir));
+  renderSLStep(slCurrentStep);
+}
+function slReset() { slCurrentStep=0; renderSLStep(0); }
+
+/* draw circuit canvases */
+function drawSLCanvas(cid, withSelfLoop) {
+  const c = document.getElementById(cid); if(!c) return;
+  const ctx = c.getContext('2d');
+  const W=c.width, H=c.height;
+  const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  ctx.fillStyle = isDark?'#2a2a28':'#fff'; ctx.fillRect(0,0,W,H);
+  // node positions: depot top-center, KH1 left, KH2 right, KH3 bottom
+  const ns = [{x:100,y:28},{x:30,y:110},{x:170,y:110},{x:100,y:148}];
+  const nc = ['#378add','#1d9e75','#1d9e75','#1d9e75'];
+  const lbl = ['D','1','2','3'];
+
+  // KTV1 edges: 0→1→3→0
+  [[0,1],[1,3],[3,0]].forEach(([a,b]) => drawSLEdge(ctx,ns[a],ns[b],'#ef9f27'));
+
+  // self_loop on node 2 if enabled
+  if (withSelfLoop) {
+    ctx.save();
+    ctx.strokeStyle='#ef9f27'; ctx.lineWidth=2; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.arc(ns[2].x+22, ns[2].y, 12, 0, Math.PI*2);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#ef9f27'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('sl=1', ns[2].x+22, ns[2].y);
+    ctx.restore();
+  } else {
+    // show red X on node 2
+    ctx.save();
+    ctx.strokeStyle='#e74c3c'; ctx.lineWidth=2;
+    const x=ns[2].x, y=ns[2].y;
+    ctx.beginPath(); ctx.moveTo(x+14,y-14); ctx.lineTo(x+26,y-2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+26,y-14); ctx.lineTo(x+14,y-2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // nodes
+  ns.forEach((n,i) => {
+    const r=i===0?16:14;
+    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    ctx.fillStyle = (i===2 && !withSelfLoop) ? '#e74c3c' : nc[i];
+    ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font=`bold 11px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(lbl[i],n.x,n.y);
+  });
+}
+
+function drawSLEdge(ctx,a,b,col) {
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.sqrt(dx*dx+dy*dy);
+  const ux=dx/len,uy=dy/len,r=15;
+  const sx=a.x+ux*r,sy=a.y+uy*r,ex=b.x-ux*r,ey=b.y-uy*r;
+  const cpx=(sx+ex)/2-dy*.25,cpy=(sy+ey)/2+dx*.25;
+  ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.globalAlpha=.9;
+  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.quadraticCurveTo(cpx,cpy,ex,ey); ctx.stroke();
+  const t=.85,aqx=(1-t)*(1-t)*sx+2*(1-t)*t*cpx+t*t*ex,aqy=(1-t)*(1-t)*sy+2*(1-t)*t*cpy+t*t*ey;
+  const ang=Math.atan2(ey-aqy,ex-aqx);
+  ctx.translate(ex,ey); ctx.rotate(ang); ctx.fillStyle=col;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-6,-3); ctx.lineTo(-6,3); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+</script>
