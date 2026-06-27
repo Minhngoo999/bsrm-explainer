@@ -31,13 +31,12 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 
 /* ── NAV ── */
-nav{background:var(--surface);border-bottom:.5px solid var(--border2);padding:14px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;overflow:hidden}
+nav{background:var(--surface);border-bottom:.5px solid var(--border2);padding:12px 20px;display:flex;align-items:flex-start;gap:10px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
 .nav-logo{width:34px;height:34px;border-radius:9px;background:var(--blue-bg);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .nav-title{font-size:15px;font-weight:600;color:var(--text);white-space:nowrap}
 .nav-sub{font-size:12px;color:var(--text2);margin-top:1px;white-space:nowrap}
 .nav-info{flex-shrink:0}
-.nav-tabs{margin-left:auto;display:flex;gap:4px;overflow-x:auto;flex-shrink:1;min-width:0;padding-bottom:2px;scrollbar-width:none}
-.nav-tabs::-webkit-scrollbar{display:none}
+.nav-tabs{display:flex;gap:4px;flex-wrap:wrap;flex:1;justify-content:flex-end}
 .nav-tab{font-size:11.5px;font-weight:500;padding:6px 12px;border-radius:20px;border:.5px solid var(--border2);background:none;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0}
 .nav-tab:hover{background:var(--bg2);color:var(--text)}
 .nav-tab.active{background:var(--text);color:var(--bg);border-color:var(--text)}
@@ -200,6 +199,13 @@ nav{background:var(--surface);border-bottom:.5px solid var(--border2);padding:14
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('overview',this)">📐 Mô hình hóa</button>
     <button class="nav-tab" onclick="switchPage('anim',this)">▶ Animation N=3 K=2</button>
+    <button class="nav-tab" onclick="switchPage('xvar',this);initXAnim()">🎲 Biến x</button>
+    <button class="nav-tab" onclick="switchPage('mtz',this);drawSubtourCanvases()">⚖ AddCircuit vs MTZ</button>
+    <button class="nav-tab" onclick="switchPage('prop',this)">⚡ Propagation</button>
+    <button class="nav-tab" onclick="switchPage('viol',this)">💥 Nếu vi phạm</button>
+    <button class="nav-tab" onclick="switchPage('selfloop',this);initSLAnim()">🔁 self_loop</button>
+    <button class="nav-tab" onclick="switchPage('yk',this);initYK()">🟢 y[k] Workload</button>
+    <button class="nav-tab" onclick="switchPage('z',this);initZ()">🔴 z Minimax</button>
   </div>
   <a class="btn-goto" href="bsrm_explainer.html">Code chi tiết →</a>
 </nav>
@@ -1141,20 +1147,7 @@ updateAnim();
 </div><!-- #page-xvar -->
 
 <script>
-/* ═══════════════════════════════════════════
-   PATCH: add tab 3 to nav
-═══════════════════════════════════════════ */
-(function(){
-  const tabs = document.querySelector('.nav-tabs');
-  if (tabs && !document.getElementById('tab3btn')) {
-    const btn = document.createElement('button');
-    btn.id = 'tab3btn';
-    btn.className = 'nav-tab';
-    btn.textContent = '🎲 Biến x — Solver điền thế nào?';
-    btn.onclick = function(){ switchPage('xvar', this); initXAnim(); };
-    tabs.appendChild(btn);
-  }
-})();
+
 
 /* ═══════════════════════════════════════════
    X ANIMATION DATA
@@ -1957,26 +1950,7 @@ x[<span class="n">3</span>,<span class="n">2</span>,<span class="n">1</span>] = 
 </div>
 
 <script>
-/* inject tabs 4, 5, 6 into nav */
-(function(){
-  const tabs = document.querySelector('.nav-tabs');
-  if (!tabs) return;
-  const defs = [
-    {id:'tab4btn', page:'mtz',  label:'⚖ AddCircuit vs MTZ'},
-    {id:'tab5btn', page:'prop', label:'⚡ Propagation'},
-    {id:'tab6btn', page:'viol', label:'💥 Nếu vi phạm'}
-  ];
-  defs.forEach(d => {
-    if (document.getElementById(d.id)) return;
-    const btn = document.createElement('button');
-    btn.id = d.id; btn.className = 'nav-tab';
-    btn.textContent = d.label;
-    const page = d.page;
-    const extra = d.page === 'mtz' ? drawSubtourCanvases : null;
-    btn.onclick = function(){ switchPage(page, this); if(extra) extra(); };
-    tabs.appendChild(btn);
-  });
-})();
+
 
 /* violation tab switcher */
 function showViol(id, btn) {
@@ -2194,16 +2168,7 @@ function drawValid(cid) {
 </div><!-- #page-selfloop -->
 
 <script>
-/* inject tab 7 */
-(function(){
-  const tabs = document.querySelector('.nav-tabs');
-  if (!tabs || document.getElementById('tab7btn')) return;
-  const btn = document.createElement('button');
-  btn.id = 'tab7btn'; btn.className = 'nav-tab';
-  btn.textContent = '🔁 self_loop';
-  btn.onclick = function(){ switchPage('selfloop', this); initSLAnim(); };
-  tabs.appendChild(btn);
-})();
+
 
 /* ── STEPS DATA ── */
 const SL_STEPS = [
@@ -2699,25 +2664,7 @@ function drawSLEdge(ctx,a,b,col) {
 </div>
 
 <script>
-/* inject tabs 8, 9 */
-(function(){
-  const tabs = document.querySelector('.nav-tabs');
-  if (!tabs) return;
-  [{id:'tab8btn',page:'yk',label:'🟢 y[k] Workload'},
-   {id:'tab9btn',page:'z', label:'🔴 z Minimax'}
-  ].forEach(d => {
-    if (document.getElementById(d.id)) return;
-    const btn = document.createElement('button');
-    btn.id=d.id; btn.className='nav-tab'; btn.textContent=d.label;
-    const pg=d.page;
-    btn.onclick=function(){
-      switchPage(pg,this);
-      if(pg==='yk') initYK();
-      if(pg==='z')  initZ();
-    };
-    tabs.appendChild(btn);
-  });
-})();
+
 
 /* ═══ TAB 8: y[k] ═══ */
 const MATRIX = [[0,10,15,20],[10,0,12,18],[15,12,0,14],[20,18,14,0]];
