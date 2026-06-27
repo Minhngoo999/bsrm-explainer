@@ -2465,3 +2465,551 @@ function drawSLEdge(ctx,a,b,col) {
   ctx.restore();
 }
 </script>
+
+<!-- ═══════════════════════════════════════════════════════
+     TAB 8: BIẾN y[k] — Workload
+     TAB 9: BIẾN z   — Minimax
+═══════════════════════════════════════════════════════ -->
+<style>
+/* y[k] specific */
+.yk-grid { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.yk-card {
+  flex: 1; min-width: 120px; background: var(--surface);
+  border: .5px solid var(--border2); border-radius: var(--r-lg);
+  padding: 14px 16px; text-align: center; transition: all .25s;
+}
+.yk-card.active-k { border-color: var(--blue-bd); box-shadow: 0 0 0 2px color-mix(in srgb,var(--blue) 25%,transparent); }
+.yk-card.settled  { border-color: var(--green-bd); background: var(--green-bg); }
+.yk-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing:.05em; margin-bottom: 6px; }
+.yk-val   { font-family: 'SFMono-Regular',Consolas,monospace; font-size: 22px; font-weight: 700; color: var(--text); transition: all .3s; }
+.yk-val.computing { color: var(--amber-text); }
+.yk-val.done      { color: var(--green-text); }
+.yk-breakdown { font-size: 11.5px; color: var(--text2); margin-top: 6px; line-height: 1.6; }
+
+/* edge contribution table */
+.edge-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 10px 0; }
+.edge-table th { text-align: left; padding: 7px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing:.06em; color: var(--text3); background: var(--bg2); border-bottom: .5px solid var(--border2); }
+.edge-table td { padding: 7px 10px; border-bottom: .5px solid var(--border); vertical-align: middle; }
+.edge-table tr:last-child td { border-bottom: none; }
+.edge-table td:nth-child(1) { font-family: 'SFMono-Regular',Consolas,monospace; font-size: 11.5px; color: var(--blue-text); }
+.edge-table .row-active { background: color-mix(in srgb,var(--amber-bg) 40%,transparent); }
+.edge-table .row-done   { background: color-mix(in srgb,var(--green-bg) 30%,transparent); }
+.edge-table .row-zero   { opacity: .45; }
+.contrib { font-weight: 700; }
+.contrib.plus  { color: var(--green-text); }
+.contrib.zero  { color: var(--text3); }
+.contrib.calc  { color: var(--amber-text); }
+
+/* z tracker */
+.z-big-display {
+  text-align: center; padding: 20px; border-radius: var(--r-lg);
+  background: var(--bg2); border: .5px solid var(--border2); margin-bottom: 14px;
+}
+.z-big-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing:.06em; margin-bottom: 6px; }
+.z-big-val { font-family: 'SFMono-Regular',Consolas,monospace; font-size: 36px; font-weight: 700; color: var(--text); transition: all .3s; }
+.z-big-val.inf    { color: var(--text3); }
+.z-big-val.set    { color: var(--amber-text); }
+.z-big-val.opt    { color: var(--green-text); }
+.z-compare { display: flex; flex-direction: column; gap: 6px; }
+.zc-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-radius: 8px; border: .5px solid var(--border);
+  background: var(--bg2); font-size: 12.5px; transition: all .25s;
+}
+.zc-row.active-z { border-color: var(--amber-bd); background: var(--amber-bg); }
+.zc-row.ok-z     { border-color: var(--green-bd); background: var(--green-bg); }
+.zc-row.lose-z   { opacity: .45; }
+.zc-label { font-family: 'SFMono-Regular',Consolas,monospace; font-size: 11.5px; }
+.zc-val   { font-weight: 700; font-size: 13px; }
+</style>
+
+<!-- ══ TAB 8: y[k] ══ -->
+<div class="page" id="page-yk">
+<div class="xpage-wrap">
+
+  <div style="padding-top:20px;margin-bottom:20px">
+    <div class="p-badge" style="background:var(--green-bg);color:var(--green-text);border-color:var(--green-bd)">Biến kết quả trung gian</div>
+    <h1 class="p-h1" style="margin-top:10px">y[k] — Workload của từng kỹ thuật viên</h1>
+    <p class="p-sub">y[k] không phải biến solver tự do chọn như x hay self_loop. Nó được <strong>xác định hoàn toàn</strong> bởi các biến x thông qua một ràng buộc đẳng thức. Solver tính y[k] từ x, không đoán mò.</p>
+  </div>
+
+  <!-- Analogy -->
+  <div class="sec-lbl">y[k] là gì so với x?</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+    <div class="cb-card">
+      <div class="cb-step">Biến x</div>
+      <div class="cb-title">🔵 Solver tự do chọn</div>
+      <div class="cb-body">x[i,j,k] = 0 hoặc 1. Solver thử các tổ hợp để tìm nghiệm tốt nhất. Đây là "biến quyết định" thực sự.</div>
+    </div>
+    <div class="cb-card" style="background:var(--green-bg);border-color:var(--green-bd)">
+      <div class="cb-step" style="color:var(--green-text)">Biến y[k]</div>
+      <div class="cb-title">🟢 Suy ra từ x</div>
+      <div class="cb-body">y[k] = ∑ x[i,j,k]·(travel+service). Khi x đã xác định, y[k] được tính ra ngay. Solver không chọn y — y là hệ quả của x.</div>
+    </div>
+    <div class="cb-card">
+      <div class="cb-step">Biến z</div>
+      <div class="cb-title">🔴 Suy ra từ y</div>
+      <div class="cb-body">z = max(y[1],...,y[K]). Khi tất cả y[k] đã xác định, z được tính ra. z là hệ quả của y, là hệ quả của x.</div>
+    </div>
+  </div>
+
+  <!-- y[k] value display -->
+  <div class="sec-lbl">Giá trị y[k] đang được tính (N=3, K=2)</div>
+  <div class="yk-grid" id="yk-display">
+    <div class="yk-card" id="yk-card-1">
+      <div class="yk-label">KTV 1 — y[1]</div>
+      <div class="yk-val" id="yk-val-1">?</div>
+      <div class="yk-breakdown" id="yk-bk-1">chưa tính</div>
+    </div>
+    <div class="yk-card" id="yk-card-2">
+      <div class="yk-label">KTV 2 — y[2]</div>
+      <div class="yk-val" id="yk-val-2">?</div>
+      <div class="yk-breakdown" id="yk-bk-2">chưa tính</div>
+    </div>
+  </div>
+
+  <!-- Edge contribution table -->
+  <div class="sec-lbl">Bảng đóng góp từng cạnh vào y[k]</div>
+  <div style="background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px">
+    <table class="edge-table">
+      <thead><tr><th>Cạnh (i→j, k)</th><th>x[i,j,k]</th><th>travel</th><th>service d[j]</th><th>Đóng góp</th></tr></thead>
+      <tbody id="yk-edge-table"></tbody>
+    </table>
+  </div>
+
+  <!-- Constraint checker -->
+  <div class="sec-lbl">Ràng buộc workload đang kiểm tra</div>
+  <div class="constraint-checker" id="yk-constraint-checker" style="margin-bottom:20px"></div>
+
+  <!-- Bottom layout -->
+  <div class="xanim-layout">
+    <div>
+      <div class="narrative-box">
+        <div class="narr-phase" id="yk-narr-phase">Giai đoạn 1</div>
+        <div class="narr-title" id="yk-narr-title">Bắt đầu</div>
+        <div class="narr-body"  id="yk-narr-body">...</div>
+      </div>
+      <div class="xanim-controls">
+        <button class="ctrl-btn" id="ykBtnPrev" onclick="ykStep(-1)" disabled>← Trước</button>
+        <div class="xprog"><div class="xprog-fill" id="ykProg" style="width:0%"></div></div>
+        <button class="ctrl-btn primary" id="ykBtnNext" onclick="ykStep(1)">Tiếp →</button>
+        <button class="ctrl-btn" onclick="ykReset()" style="padding:8px 12px">↺</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:8px" id="ykStepNum">Bước 1 / 8</div>
+    </div>
+
+    <div class="z-tracker">
+      <div class="zt-label">Công thức y[k]</div>
+      <div style="background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:14px 16px;font-size:13px;line-height:1.85">
+        <div style="font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;background:var(--bg2);border-radius:6px;padding:10px;margin-bottom:10px;border:.5px solid var(--border2)">y[k] = ∑ x[i,j,k]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× (matrix[i][j]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+&nbsp; d[j] if j≠0<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+&nbsp; 0 if j=0)</div>
+        <div style="color:var(--text2)">
+          Khi <span class="ck">x[i,j,k]=0</span>: cạnh không được đi → đóng góp <strong>0</strong><br><br>
+          Khi <span class="ck-g">x[i,j,k]=1</span>: cạnh được đi → đóng góp <strong>travel + service</strong><br><br>
+          → y[k] = tổng chi phí tất cả cạnh được đi bởi KTV k
+        </div>
+      </div>
+      <div style="margin-top:10px;background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Tổng hiện tại</div>
+        <div id="yk-running-total" style="font-size:13px;line-height:1.8;color:var(--text2)">Chưa tính...</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ TAB 9: z ══ -->
+<div class="page" id="page-z">
+<div class="xpage-wrap">
+
+  <div style="padding-top:20px;margin-bottom:20px">
+    <div class="p-badge" style="background:var(--coral-bg);color:var(--coral-text);border-color:var(--coral-bd)">Biến mục tiêu</div>
+    <h1 class="p-h1" style="margin-top:10px">z — Minimax: tối thiểu hóa workload lớn nhất</h1>
+    <p class="p-sub">z là biến cuối cùng trong chuỗi x → y → z. Nó đại diện cho workload của KTV bận nhất. Solver minimize z → buộc phải tìm phân công sao cho người bận nhất làm ít nhất có thể.</p>
+  </div>
+
+  <!-- Chain visualization -->
+  <div class="sec-lbl">Chuỗi phụ thuộc: x → y → z</div>
+  <div style="display:flex;align-items:center;gap:0;margin-bottom:20px;background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);overflow:hidden">
+    <div style="flex:1;padding:16px 18px;border-right:.5px solid var(--border2)">
+      <div style="font-size:10px;font-weight:700;color:var(--blue-text);text-transform:uppercase;margin-bottom:5px">Biến x</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--text)">x[i,j,k] ∈ {0,1}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Solver tự do chọn</div>
+    </div>
+    <div style="padding:0 12px;color:var(--text3);font-size:18px">→</div>
+    <div style="flex:1;padding:16px 18px;border-right:.5px solid var(--border2);background:color-mix(in srgb,var(--green-bg) 20%,transparent)">
+      <div style="font-size:10px;font-weight:700;color:var(--green-text);text-transform:uppercase;margin-bottom:5px">Biến y[k]</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--text)">y[k] = ∑x·(t+d)</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Suy ra từ x</div>
+    </div>
+    <div style="padding:0 12px;color:var(--text3);font-size:18px">→</div>
+    <div style="flex:1;padding:16px 18px;background:color-mix(in srgb,var(--coral-bg) 30%,transparent)">
+      <div style="font-size:10px;font-weight:700;color:var(--coral-text);text-transform:uppercase;margin-bottom:5px">Biến z</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--text)">z ≥ y[k] ∀k</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Minimize z</div>
+    </div>
+  </div>
+
+  <!-- z display -->
+  <div class="sec-lbl">Giá trị z qua các lần thử (N=3, K=2)</div>
+  <div class="z-big-display">
+    <div class="z-big-label">z = max workload hiện tại</div>
+    <div class="z-big-val inf" id="z-big-val">∞</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:6px" id="z-big-sub">Chưa có nghiệm</div>
+  </div>
+
+  <!-- y[k] comparison -->
+  <div class="sec-lbl">So sánh y[k] qua các phân công</div>
+  <div class="z-compare" id="z-compare-list"></div>
+
+  <!-- Constraint checker -->
+  <div class="sec-lbl" style="margin-top:16px">Ràng buộc z đang kiểm tra</div>
+  <div class="constraint-checker" id="z-constraint-checker" style="margin-bottom:20px"></div>
+
+  <!-- Bottom -->
+  <div class="xanim-layout">
+    <div>
+      <div class="narrative-box">
+        <div class="narr-phase" id="z-narr-phase">Giai đoạn 1</div>
+        <div class="narr-title" id="z-narr-title">Bắt đầu</div>
+        <div class="narr-body"  id="z-narr-body">...</div>
+      </div>
+      <div class="xanim-controls">
+        <button class="ctrl-btn" id="zBtnPrev" onclick="zStep(-1)" disabled>← Trước</button>
+        <div class="xprog"><div class="xprog-fill" id="zProg" style="width:0%"></div></div>
+        <button class="ctrl-btn primary" id="zBtnNext" onclick="zStep(1)">Tiếp →</button>
+        <button class="ctrl-btn" onclick="zReset()" style="padding:8px 12px">↺</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:8px" id="zStepNum">Bước 1 / 9</div>
+    </div>
+
+    <div class="z-tracker">
+      <div class="zt-label">Tại sao không Minimize(max(y)) trực tiếp?</div>
+      <div style="background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r-lg);padding:14px 16px;font-size:13px;line-height:1.8;color:var(--text2)">
+        CP-SAT <strong>không hỗ trợ</strong> hàm mục tiêu phi tuyến như max() trực tiếp.<br><br>
+        Thay vào đó dùng <strong>mẹo biến phụ z</strong>:<br>
+        <div style="font-family:monospace;font-size:11.5px;background:var(--bg2);border-radius:6px;padding:8px;margin:8px 0;border:.5px solid var(--border2)">z ≥ y[1]<br>z ≥ y[2]<br>...<br>z ≥ y[K]<br>Minimize(z)</div>
+        Vì z ≥ tất cả y[k], minimize z = minimize max(y[k]).<br><br>
+        <strong>Solver không biết</strong> z là max — nó chỉ biết z phải ≥ mọi y[k] và cần nhỏ nhất.
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+/* inject tabs 8, 9 */
+(function(){
+  const tabs = document.querySelector('.nav-tabs');
+  if (!tabs) return;
+  [{id:'tab8btn',page:'yk',label:'🟢 y[k] Workload'},
+   {id:'tab9btn',page:'z', label:'🔴 z Minimax'}
+  ].forEach(d => {
+    if (document.getElementById(d.id)) return;
+    const btn = document.createElement('button');
+    btn.id=d.id; btn.className='nav-tab'; btn.textContent=d.label;
+    const pg=d.page;
+    btn.onclick=function(){
+      switchPage(pg,this);
+      if(pg==='yk') initYK();
+      if(pg==='z')  initZ();
+    };
+    tabs.appendChild(btn);
+  });
+})();
+
+/* ═══ TAB 8: y[k] ═══ */
+const MATRIX = [[0,10,15,20],[10,0,12,18],[15,12,0,14],[20,18,14,0]];
+const D = [0,5,8,6];
+
+// Optimal route: KTV1: 0→1→2→0, KTV2: 0→3→0
+const ROUTE1 = [[0,1],[1,2],[2,0]];
+const ROUTE2 = [[0,3],[3,0]];
+
+const YK_STEPS = [
+  {
+    phase:'Giai đoạn 1 — Khởi tạo',
+    title:'y[k] là IntVar, domain [0, UB]',
+    body:'Solver tạo <span class="ck">y[1]</span> và <span class="ck">y[2]</span> là IntVar trong khoảng [0, 79]. Chưa có giá trị cụ thể — domain chỉ nói "workload không vượt quá 79 phút". Giá trị thực sẽ được xác định khi x đã có nghiệm.',
+    y1:'?', y2:'?', bk1:'domain: [0, 79]', bk2:'domain: [0, 79]',
+    activeEdges:[], activeK:0,
+    constraints:[{text:'y[k] = IntVar(0, UB) — domain [0,79]', status:'ok'},{text:'Chưa có ràng buộc workload nào', status:'wait'}],
+    total:'Chưa tính...'
+  },
+  {
+    phase:'Giai đoạn 2 — Tính y[1]',
+    title:'Cạnh 0→1 (KTV1): travel=10, service=d[1]=5 → đóng góp 15',
+    body:'x[0,1,1]=1 → cạnh này được đi. Chi phí = matrix[0][1] + d[1] = <strong>10 + 5 = 15</strong>. Đây là phần đầu tiên được cộng vào y[1]. Các cạnh x=0 đóng góp 0 — không tính.',
+    y1:'15...', y2:'?', bk1:'0→1: 10+5=15', bk2:'đang chờ',
+    activeEdges:[[0,1,1]], activeK:1,
+    constraints:[{text:'y[1] += x[0,1,1]·(10+5) = 1·15 = 15', status:'ok'},{text:'y[1] đang tích lũy...', status:'check'}],
+    total:'y[1] tạm: 15<br>y[2] tạm: 0'
+  },
+  {
+    phase:'Giai đoạn 2 — Tính y[1]',
+    title:'Cạnh 1→2 (KTV1): travel=12, service=d[2]=8 → đóng góp 20',
+    body:'x[1,2,1]=1 → cạnh này được đi. Chi phí = matrix[1][2] + d[2] = <strong>12 + 8 = 20</strong>. Cộng dồn vào y[1]: 15 + 20 = 35.',
+    y1:'35...', y2:'?', bk1:'0→1:15, 1→2:20', bk2:'đang chờ',
+    activeEdges:[[0,1,1],[1,2,1]], activeK:1,
+    constraints:[{text:'y[1] += x[1,2,1]·(12+8) = 1·20 = 20', status:'ok'},{text:'y[1] đang tích lũy: 15+20=35', status:'check'}],
+    total:'y[1] tạm: 35<br>y[2] tạm: 0'
+  },
+  {
+    phase:'Giai đoạn 2 — Tính y[1]',
+    title:'Cạnh 2→0 (KTV1): travel=15, service=d[0]=0 → đóng góp 15',
+    body:'x[2,0,1]=1 → về depot. Chi phí = matrix[2][0] + d[0] = <strong>15 + 0 = 15</strong>. Về depot không có thời gian phục vụ nên d[0]=0. Cộng dồn: 35 + 15 = <strong>50</strong>.',
+    y1:'50', y2:'?', bk1:'15+20+15=50', bk2:'đang chờ',
+    activeEdges:[[0,1,1],[1,2,1],[2,0,1]], activeK:1,
+    constraints:[{text:'y[1] += x[2,0,1]·(15+0) = 1·15 = 15', status:'ok'},{text:'y[1] = 50 phút ✓', status:'ok'}],
+    total:'<span style="color:var(--green-text);font-weight:600">y[1] = 50 phút ✓</span><br>y[2] tạm: 0'
+  },
+  {
+    phase:'Giai đoạn 3 — Tính y[2]',
+    title:'Cạnh 0→3 (KTV2): travel=20, service=d[3]=6 → đóng góp 26',
+    body:'Chuyển sang KTV 2. x[0,3,2]=1 → đi từ depot đến KH3. Chi phí = matrix[0][3] + d[3] = <strong>20 + 6 = 26</strong>.',
+    y1:'50', y2:'26...', bk1:'15+20+15=50 ✓', bk2:'0→3: 20+6=26',
+    activeEdges:[[0,1,1],[1,2,1],[2,0,1],[0,3,2]], activeK:2,
+    constraints:[{text:'y[1] = 50 ✓ (đã xong)', status:'ok'},{text:'y[2] += x[0,3,2]·(20+6) = 26', status:'ok'},{text:'y[2] đang tích lũy...', status:'check'}],
+    total:'<span style="color:var(--green-text);font-weight:600">y[1] = 50 phút ✓</span><br>y[2] tạm: 26'
+  },
+  {
+    phase:'Giai đoạn 3 — Tính y[2]',
+    title:'Cạnh 3→0 (KTV2): travel=20, service=0 → đóng góp 20',
+    body:'x[3,0,2]=1 → KTV2 quay về depot. Chi phí = matrix[3][0] + d[0] = <strong>20 + 0 = 20</strong>. Cộng dồn: 26 + 20 = <strong>46</strong>.',
+    y1:'50', y2:'46', bk1:'15+20+15=50 ✓', bk2:'26+20=46 ✓',
+    activeEdges:[[0,1,1],[1,2,1],[2,0,1],[0,3,2],[3,0,2]], activeK:2,
+    constraints:[{text:'y[1] = 50 ✓', status:'ok'},{text:'y[2] += x[3,0,2]·(20+0) = 20', status:'ok'},{text:'y[2] = 46 phút ✓', status:'ok'}],
+    total:'<span style="color:var(--green-text);font-weight:600">y[1] = 50 phút ✓</span><br><span style="color:var(--green-text);font-weight:600">y[2] = 46 phút ✓</span>'
+  },
+  {
+    phase:'Giai đoạn 4 — Ràng buộc',
+    title:'model.Add(y[k] == sum(total)) — liên kết y với x',
+    body:'Sau khi tính xong, solver áp ràng buộc: <span class="ck">y[1] == 50</span> và <span class="ck">y[2] == 46</span>. Ràng buộc này <strong>liên kết y với x</strong> — nếu x thay đổi (solver thử nhánh khác), y phải được tính lại theo công thức.',
+    y1:'50', y2:'46', bk1:'= 50 (đã xác định)', bk2:'= 46 (đã xác định)',
+    activeEdges:[[0,1,1],[1,2,1],[2,0,1],[0,3,2],[3,0,2]], activeK:0,
+    constraints:[{text:'model.Add(y[1] == 50) ✓', status:'ok'},{text:'model.Add(y[2] == 46) ✓', status:'ok'},{text:'y[k] không thể tự do — buộc = ∑x·cost', status:'ok'}],
+    total:'<span style="color:var(--green-text);font-weight:600">y[1] = 50 ✓</span><br><span style="color:var(--green-text);font-weight:600">y[2] = 46 ✓</span><br><br>Sẵn sàng truyền sang z'
+  },
+  {
+    phase:'Giai đoạn 5 — Kết nối với z',
+    title:'y[k] xác định xong → truyền sang z để tính minimax',
+    body:'y[1]=50 và y[2]=46 đã xác định. Bây giờ ràng buộc <span class="ck">z ≥ y[k]</span> có thể hoạt động: z ≥ 50, z ≥ 46 → z ≥ 50. Minimize z → solver tìm phân công khác để giảm y[1] xuống nếu có thể.',
+    y1:'50', y2:'46', bk1:'→ z ≥ 50', bk2:'→ z ≥ 46',
+    activeEdges:[[0,1,1],[1,2,1],[2,0,1],[0,3,2],[3,0,2]], activeK:0,
+    constraints:[{text:'z ≥ y[1] = 50 ✓', status:'ok'},{text:'z ≥ y[2] = 46 ✓', status:'ok'},{text:'z = max(50,46) = 50 → Minimize(z)', status:'ok'}],
+    total:'<span style="color:var(--green-text);font-weight:600">y[1] = 50, y[2] = 46</span><br>z = max(50,46) = <strong>50</strong>'
+  }
+];
+
+/* edge rows config */
+const ALL_EDGES_YK = [
+  {edge:'0→1 (KTV1)',k:1,i:0,j:1},
+  {edge:'1→2 (KTV1)',k:1,i:1,j:2},
+  {edge:'2→0 (KTV1)',k:1,i:2,j:0},
+  {edge:'0→3 (KTV2)',k:2,i:0,j:3},
+  {edge:'3→0 (KTV2)',k:2,i:3,j:0},
+];
+
+let ykCurrentStep=0, ykInitDone=false;
+
+function initYK(){
+  if(ykInitDone) return; ykInitDone=true;
+  const tb=document.getElementById('yk-edge-table');
+  ALL_EDGES_YK.forEach((e,idx)=>{
+    const t=MATRIX[e.i][e.j], s=e.j!==0?D[e.j]:0;
+    const tr=document.createElement('tr');
+    tr.id=`yk-erow-${idx}`;
+    tr.innerHTML=`<td>${e.edge}</td><td id="yk-ex-${idx}">?</td><td>${t}</td><td>${s}</td><td id="yk-ec-${idx}" class="contrib">?</td>`;
+    tb.appendChild(tr);
+  });
+  renderYK(0);
+}
+
+function renderYK(si){
+  const s=YK_STEPS[si], total=YK_STEPS.length;
+  // y displays
+  ['1','2'].forEach(k=>{
+    const card=document.getElementById(`yk-card-${k}`);
+    const val=document.getElementById(`yk-val-${k}`);
+    const bk=document.getElementById(`yk-bk-${k}`);
+    val.textContent = k==='1'?s.y1:s.y2;
+    bk.textContent  = k==='1'?s.bk1:s.bk2;
+    card.className='yk-card';
+    const yv = k==='1'?s.y1:s.y2;
+    if(yv==='?'){val.className='yk-val';}
+    else if(yv.includes('...')){val.className='yk-val computing'; card.classList.add('active-k');}
+    else{val.className='yk-val done'; card.classList.add('settled');}
+    if(s.activeK===parseInt(k)) card.classList.add('active-k');
+  });
+  // edge table
+  ALL_EDGES_YK.forEach((e,idx)=>{
+    const tr=document.getElementById(`yk-erow-${idx}`);
+    const xEl=document.getElementById(`yk-ex-${idx}`);
+    const cEl=document.getElementById(`yk-ec-${idx}`);
+    const active=s.activeEdges.some(([i,j,k])=>i===e.i&&j===e.j&&k===e.k);
+    const t=MATRIX[e.i][e.j], sv=e.j!==0?D[e.j]:0;
+    tr.className=''; xEl.className=''; cEl.className='contrib';
+    if(active){
+      tr.classList.add('row-done'); xEl.textContent='1'; cEl.textContent=`+${t+sv}`; cEl.classList.add('plus');
+    } else if(s.activeEdges.length===0||si===0){
+      xEl.textContent='?'; cEl.textContent='?';
+    } else {
+      tr.classList.add('row-zero'); xEl.textContent='0'; cEl.textContent='0'; cEl.classList.add('zero');
+    }
+  });
+  // constraints
+  const cc=document.getElementById('yk-constraint-checker'); cc.innerHTML='';
+  s.constraints.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='cc-row'+(c.status==='ok'?' ok':c.status==='fail'?' fail':c.status==='check'?' active':'');
+    const icon=c.status==='ok'?'✅':c.status==='fail'?'❌':c.status==='check'?'🔍':'⏳';
+    const stxt=c.status==='ok'?'Thỏa ✓':c.status==='fail'?'Vi phạm ✗':c.status==='check'?'Đang tính...':'Chờ';
+    const scls=c.status==='ok'?'s-ok':c.status==='fail'?'s-fail':c.status==='check'?'s-check':'s-wait';
+    row.innerHTML=`<div class="cc-icon">${icon}</div><div class="cc-text cc-formula">${c.text}</div><div class="cc-status ${scls}">${stxt}</div>`;
+    cc.appendChild(row);
+  });
+  // narrative
+  document.getElementById('yk-narr-phase').textContent=s.phase;
+  document.getElementById('yk-narr-title').textContent=s.title;
+  document.getElementById('yk-narr-body').innerHTML=s.body;
+  document.getElementById('yk-running-total').innerHTML=s.total;
+  // progress
+  document.getElementById('ykProg').style.width=((si+1)/total*100)+'%';
+  document.getElementById('ykStepNum').textContent=`Bước ${si+1} / ${total}`;
+  document.getElementById('ykBtnPrev').disabled=si===0;
+  document.getElementById('ykBtnNext').disabled=si===total-1;
+  document.getElementById('ykBtnNext').textContent=si===total-1?'Hoàn thành ✓':'Tiếp →';
+}
+function ykStep(dir){ykCurrentStep=Math.max(0,Math.min(YK_STEPS.length-1,ykCurrentStep+dir));renderYK(ykCurrentStep);}
+function ykReset(){ykCurrentStep=0;renderYK(0);}
+
+/* ═══ TAB 9: z ═══ */
+const Z_STEPS = [
+  {
+    phase:'Giai đoạn 1 — Khởi tạo',
+    title:'z = IntVar(0, UB) — ô trống chờ xác định',
+    body:'Solver tạo <span class="ck">z</span> là IntVar trong [0, 79]. Giống y[k], z cũng là ô trống chưa có giá trị. Nhưng khác y[k] ở chỗ: z không được tính từ x trực tiếp — nó được xác định qua ràng buộc <span class="ck">z ≥ y[k]</span>.',
+    zVal:'∞', zClass:'inf', zSub:'Chưa có nghiệm',
+    compare:[{label:'Phân công A',y1:'?',y2:'?',z:'?',state:''},
+             {label:'Phân công B',y1:'?',y2:'?',z:'?',state:''},
+             {label:'Phân công C',y1:'?',y2:'?',z:'?',state:''}],
+    constraints:[{text:'z = IntVar(0, 79)', status:'ok'},{text:'Chờ y[k] xác định trước', status:'wait'}]
+  },
+  {
+    phase:'Giai đoạn 2 — Ràng buộc z ≥ y[k]',
+    title:'model.Add(z >= y[1]) và model.Add(z >= y[2])',
+    body:'Solver thêm K=2 ràng buộc: <span class="ck">z ≥ y[1]</span> và <span class="ck">z ≥ y[2]</span>. Hai ràng buộc này ép z phải lớn hơn hoặc bằng workload của cả 2 KTV. Tức là z ≥ max(y[1], y[2]). Chưa có giá trị cụ thể — chờ y[k] được tính.',
+    zVal:'∞', zClass:'inf', zSub:'Chờ y[k]...',
+    compare:[{label:'Phân công A',y1:'?',y2:'?',z:'?',state:''},
+             {label:'Phân công B',y1:'?',y2:'?',z:'?',state:''},
+             {label:'Phân công C',y1:'?',y2:'?',z:'?',state:''}],
+    constraints:[{text:'model.Add(z >= y[1]) ✓', status:'ok'},{text:'model.Add(z >= y[2]) ✓', status:'ok'},{text:'model.Minimize(z) ✓', status:'ok'}]
+  },
+  {
+    phase:'Giai đoạn 3 — Thử phân công A',
+    title:'Phân công A: KTV1: 0→1→3→0, KTV2: 0→2→0 → z=59',
+    body:'Solver thử phân công đầu tiên. y[1] = (10+5)+(18+6)+(20) = 59, y[2] = (15+8)+(15) = 38. Ràng buộc: z ≥ 59 và z ≥ 38 → z = 59. Đây là nghiệm đầu tiên. Solver ghi nhớ z=59 và tìm xem có phân công nào tốt hơn không.',
+    zVal:'59', zClass:'set', zSub:'Nghiệm đầu tiên — đang tìm tốt hơn',
+    compare:[{label:'Phân công A: 0→1→3→0 / 0→2→0',y1:'59',y2:'38',z:'59',state:'active-z'},
+             {label:'Phân công B',y1:'?',y2:'?',z:'?',state:''},
+             {label:'Phân công C',y1:'?',y2:'?',z:'?',state:''}],
+    constraints:[{text:'z ≥ y[1]=59 → z ≥ 59', status:'ok'},{text:'z ≥ y[2]=38 → đã thỏa', status:'ok'},{text:'z = 59 — upper bound hiện tại', status:'check'}]
+  },
+  {
+    phase:'Giai đoạn 3 — Thử phân công B',
+    title:'Phân công B: KTV1: 0→2→3→0, KTV2: 0→1→0 → z=63, tệ hơn!',
+    body:'Solver thử phân công khác. y[1] = (15+8)+(14+6)+(20) = 63, y[2] = (10+5)+(10) = 25. z = max(63,25) = 63 > 59. <span style="color:#c0392b"><strong>Tệ hơn phân công A!</strong></span> Solver loại bỏ nhánh này (pruning) và tiếp tục.',
+    zVal:'59', zClass:'set', zSub:'Phân công B tệ hơn — giữ z=59',
+    compare:[{label:'Phân công A: 0→1→3→0 / 0→2→0',y1:'59',y2:'38',z:'59',state:'ok-z'},
+             {label:'Phân công B: 0→2→3→0 / 0→1→0',y1:'63',y2:'25',z:'63',state:'lose-z'},
+             {label:'Phân công C',y1:'?',y2:'?',z:'?',state:''}],
+    constraints:[{text:'z = 63 > 59 — không cải thiện', status:'fail'},{text:'Pruning: loại bỏ nhánh này', status:'ok'},{text:'Giữ z=59 là best-so-far', status:'ok'}]
+  },
+  {
+    phase:'Giai đoạn 3 — Thử phân công C',
+    title:'Phân công C: KTV1: 0→1→2→0, KTV2: 0→3→0 → z=50, tốt hơn!',
+    body:'Solver thử phân công mới. y[1] = (10+5)+(12+8)+(15) = 50, y[2] = (20+6)+(20) = 46. z = max(50,46) = 50 < 59. <span style="color:var(--green-text)"><strong>Tốt hơn!</strong></span> Solver cập nhật upper bound: z_best = 50. Tiếp tục tìm xem còn phân công nào cho z < 50 không.',
+    zVal:'50', zClass:'set', zSub:'Cải thiện! Tìm tiếp z < 50...',
+    compare:[{label:'Phân công A: 0→1→3→0 / 0→2→0',y1:'59',y2:'38',z:'59',state:'lose-z'},
+             {label:'Phân công B: 0→2→3→0 / 0→1→0',y1:'63',y2:'25',z:'63',state:'lose-z'},
+             {label:'Phân công C: 0→1→2→0 / 0→3→0',y1:'50',y2:'46',z:'50',state:'active-z'}],
+    constraints:[{text:'z = 50 < 59 — cải thiện!', status:'ok'},{text:'z ≥ y[1]=50, z ≥ y[2]=46 ✓', status:'ok'},{text:'Upper bound mới: z_best = 50', status:'check'}]
+  },
+  {
+    phase:'Giai đoạn 4 — Chứng minh tối ưu',
+    title:'Duyệt hết các nhánh còn lại — đều cho z ≥ 50',
+    body:'Solver tiếp tục duyệt tất cả phân công còn lại. Mọi nhánh đều bị cắt bởi lower bound hoặc cho z ≥ 50. Không có phân công nào cho z < 50. Solver <strong>chứng minh được</strong> z=50 là tối ưu toàn cục — trả về status OPTIMAL.',
+    zVal:'50', zClass:'opt', zSub:'OPTIMAL — đã chứng minh tối ưu ✓',
+    compare:[{label:'Phân công A: 0→1→3→0 / 0→2→0',y1:'59',y2:'38',z:'59',state:'lose-z'},
+             {label:'Phân công B: 0→2→3→0 / 0→1→0',y1:'63',y2:'25',z:'63',state:'lose-z'},
+             {label:'✓ Phân công C: 0→1→2→0 / 0→3→0',y1:'50',y2:'46',z:'50',state:'ok-z'}],
+    constraints:[{text:'Tất cả nhánh đã duyệt', status:'ok'},{text:'Không có z < 50 khả thi', status:'ok'},{text:'z = 50 — OPTIMAL ✓', status:'ok'}]
+  },
+  {
+    phase:'Giai đoạn 5 — Tại sao z=50 chứ không nhỏ hơn?',
+    title:'Lower bound: KH3 cần ít nhất 20+6+20=46, KH1+KH2 cần ≥ 50',
+    body:'Tại sao không thể z < 50? Vì tổng chi phí phục vụ KH1+KH2 từ depot và quay về là tối thiểu: (10+5)+(12+8)+15 = 50. Không có cách nào phân công KH1 và KH2 cho 1 KTV với tổng < 50. → z không thể < 50 → z=50 là tối ưu.',
+    zVal:'50', zClass:'opt', zSub:'Lower bound = 50 → không thể tốt hơn',
+    compare:[{label:'✓ Phân công C: 0→1→2→0 / 0→3→0',y1:'50',y2:'46',z:'50',state:'ok-z'},
+             {label:'Mọi phân công khác',y1:'≥50',y2:'—',z:'≥50',state:'lose-z'},
+             {label:'Không tồn tại',y1:'<50',y2:'—',z:'<50',state:'lose-z'}],
+    constraints:[{text:'Min cost KH1+KH2 = 50 (lower bound)', status:'ok'},{text:'z < 50 → INFEASIBLE', status:'ok'},{text:'z = 50 → tối ưu tuyệt đối ✓', status:'ok'}]
+  },
+  {
+    phase:'Giai đoạn 6 — Đọc kết quả',
+    title:'solver.Value(z) = 50 — đọc giá trị sau khi giải',
+    body:'Sau khi solver chạy xong, bạn có thể đọc <span class="ck">solver.Value(z)</span> = 50. Đây là makespan tối ưu — workload của KTV bận nhất. Tuy nhiên trong code thực tế, z không được in ra trực tiếp — bạn chỉ in route của từng KTV. z là công cụ tối ưu hóa, không phải output.',
+    zVal:'50', zClass:'opt', zSub:'solver.Value(z) = 50 — OPTIMAL',
+    compare:[{label:'✓ Phân công tối ưu: C',y1:'50',y2:'46',z:'50',state:'ok-z'},
+             {label:'Output in ra',y1:'route KTV1','y2':'route KTV2',z:'không in z',state:''}],
+    constraints:[{text:'solver.Value(z) = 50 ✓', status:'ok'},{text:'z không xuất hiện trong output', status:'ok'},{text:'z chỉ dùng để guide solver tìm nghiệm tốt', status:'ok'}]
+  }
+];
+
+let zCurrentStep=0, zInitDone=false;
+
+function initZ(){
+  if(zInitDone) return; zInitDone=true;
+  renderZ(0);
+}
+
+function renderZ(si){
+  const s=Z_STEPS[si], total=Z_STEPS.length;
+  // z display
+  const zEl=document.getElementById('z-big-val');
+  zEl.textContent=s.zVal; zEl.className='z-big-val '+s.zClass;
+  document.getElementById('z-big-sub').textContent=s.zSub;
+  // compare list
+  const cl=document.getElementById('z-compare-list'); cl.innerHTML='';
+  s.compare.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='zc-row '+(c.state||'');
+    row.innerHTML=`<span class="zc-label">${c.label}</span>
+      <span style="font-size:12px;color:var(--text2)">y[1]=${c.y1} · y[2]=${c.y2}</span>
+      <span class="zc-val" style="color:${c.state==='ok-z'?'var(--green-text)':c.state==='lose-z'?'#c0392b':c.state==='active-z'?'var(--amber-text)':'var(--text3)'}">z=${c.z}</span>`;
+    cl.appendChild(row);
+  });
+  // constraints
+  const cc=document.getElementById('z-constraint-checker'); cc.innerHTML='';
+  s.constraints.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='cc-row'+(c.status==='ok'?' ok':c.status==='fail'?' fail':c.status==='check'?' active':'');
+    const icon=c.status==='ok'?'✅':c.status==='fail'?'❌':c.status==='check'?'🔍':'⏳';
+    const stxt=c.status==='ok'?'Thỏa ✓':c.status==='fail'?'Không cải thiện':c.status==='check'?'Đang theo dõi...':'Chờ';
+    const scls=c.status==='ok'?'s-ok':c.status==='fail'?'s-fail':c.status==='check'?'s-check':'s-wait';
+    row.innerHTML=`<div class="cc-icon">${icon}</div><div class="cc-text cc-formula">${c.text}</div><div class="cc-status ${scls}">${stxt}</div>`;
+    cc.appendChild(row);
+  });
+  // narrative
+  document.getElementById('z-narr-phase').textContent=s.phase;
+  document.getElementById('z-narr-title').textContent=s.title;
+  document.getElementById('z-narr-body').innerHTML=s.body;
+  // progress
+  document.getElementById('zProg').style.width=((si+1)/total*100)+'%';
+  document.getElementById('zStepNum').textContent=`Bước ${si+1} / ${total}`;
+  document.getElementById('zBtnPrev').disabled=si===0;
+  document.getElementById('zBtnNext').disabled=si===total-1;
+  document.getElementById('zBtnNext').textContent=si===total-1?'Hoàn thành ✓':'Tiếp →';
+}
+function zStep(dir){zCurrentStep=Math.max(0,Math.min(Z_STEPS.length-1,zCurrentStep+dir));renderZ(zCurrentStep);}
+function zReset(){zCurrentStep=0;renderZ(0);}
+</script>
